@@ -1,12 +1,12 @@
 # Parlor
 
-> **Research preview** — this is an early experiment. Expect rough edges, bugs, and latency quirks. Feedback and contributions welcome.
+On-device, real-time multimodal AI. Have natural voice and vision conversations with an AI that runs entirely on your machine.
 
-On-device, real-time multimodal AI. Have natural voice and vision conversations with an AI that runs entirely on your machine — nothing leaves your device.
-
-Parlor pairs [Gemma 4 E2B](https://huggingface.co/google/gemma-4-E2B-it) (2.3B effective parameters, native audio + vision) with [Kokoro](https://huggingface.co/hexgrad/Kokoro-82M) TTS for fluid, spoken conversations. You talk, show your camera, and it talks back — all locally.
+Parlor uses [Gemma 4 E2B](https://huggingface.co/google/gemma-4-E2B-it) for understanding speech and vision, and [Kokoro](https://huggingface.co/hexgrad/Kokoro-82M) for text-to-speech. You talk, show your camera, and it talks back, all locally.
 
 https://github.com/user-attachments/assets/placeholder
+
+> **Research preview.** This is an early experiment. Expect rough edges and bugs.
 
 ## How it works
 
@@ -24,16 +24,15 @@ FastAPI server
 Browser (playback + transcript)
 ```
 
-- **Voice Activity Detection** runs in the browser ([Silero VAD](https://github.com/ricky0123/vad)) — hands-free, push-to-talk free
-- **Barge-in** — interrupt the AI mid-sentence by speaking
-- **Sentence-level TTS streaming** — audio starts playing before the full response is generated
+- **Voice Activity Detection** in the browser ([Silero VAD](https://github.com/ricky0123/vad)). Hands-free, no push-to-talk.
+- **Barge-in.** Interrupt the AI mid-sentence by speaking.
+- **Sentence-level TTS streaming.** Audio starts playing before the full response is generated.
 
 ## Requirements
 
-- **Python 3.12+**
-- **macOS** with Apple Silicon (M1/M2/M3/M4) — uses Metal via WebGPU for GPU inference
-- **Linux** with a supported GPU — uses ONNX for TTS (CPU)
-- ~3 GB free RAM for the Gemma 4 E2B model
+- Python 3.12+
+- macOS with Apple Silicon (M1/M2/M3/M4), or Linux with a supported GPU
+- ~3 GB free RAM for the model
 
 ## Quick start
 
@@ -46,27 +45,27 @@ uv sync
 uv run python server.py
 ```
 
-Open [http://localhost:8000](http://localhost:8000) — grant camera and microphone access, start talking.
+Open [http://localhost:8000](http://localhost:8000), grant camera and microphone access, and start talking.
 
-On first run, models are downloaded automatically (~2.6 GB for Gemma 4 E2B from HuggingFace, plus TTS models).
+Models are downloaded automatically on first run (~2.6 GB for Gemma 4 E2B, plus TTS models).
 
 ## Configuration
 
-| Variable | Default | Description |
-|----------|---------|-------------|
+| Variable     | Default                        | Description                                    |
+| ------------ | ------------------------------ | ---------------------------------------------- |
 | `MODEL_PATH` | auto-download from HuggingFace | Path to a local `gemma-4-E2B-it.litertlm` file |
-| `PORT` | `8000` | Server port |
+| `PORT`       | `8000`                         | Server port                                    |
 
 ## Performance (Apple M3 Pro)
 
-| Stage | Time |
-|-------|------|
-| Speech + vision understanding | ~1.8-2.2s |
-| Response generation (~25 tokens) | ~0.3s |
-| Text-to-speech (1-3 sentences) | ~0.3-0.7s |
-| **Total end-to-end** | **~2.5-3.0s** |
+| Stage                            | Time          |
+| -------------------------------- | ------------- |
+| Speech + vision understanding    | ~1.8-2.2s     |
+| Response generation (~25 tokens) | ~0.3s         |
+| Text-to-speech (1-3 sentences)   | ~0.3-0.7s     |
+| **Total end-to-end**             | **~2.5-3.0s** |
 
-Decode speed: ~83 tokens/sec (GPU).
+Decode speed: ~83 tokens/sec on GPU (Apple M3 Pro).
 
 ## Project structure
 
@@ -90,4 +89,4 @@ benchmarks/
 
 ## License
 
-Apache 2.0 — see [LICENSE](LICENSE).
+[Apache 2.0](LICENSE)
