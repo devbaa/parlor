@@ -15,8 +15,6 @@
     --c-text: #c8cad0;
     --c-text-dim: #5a5d66;
     --c-text-bright: #eef0f4;
-
-    /* State palette */
     --c-listen: #4ade80;
     --c-listen-dim: rgba(74,222,128,0.12);
     --c-process: #f59e0b;
@@ -25,11 +23,8 @@
     --c-speak-dim: rgba(129,140,248,0.12);
     --c-loading: #3a3d46;
     --c-loading-dim: rgba(58,61,70,0.12);
-
-    /* Active state (set by JS) */
     --glow: var(--c-loading);
     --glow-dim: var(--c-loading-dim);
-
     --font-body: 'Instrument Sans', system-ui, sans-serif;
     --font-display: 'Syne', system-ui, sans-serif;
   }
@@ -41,14 +36,10 @@
     background: var(--c-bg);
     color: var(--c-text);
     height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
     overflow: hidden;
     position: relative;
   }
 
-  /* ── Background radial glow ── */
   body::before {
     content: '';
     position: fixed;
@@ -63,62 +54,132 @@
     z-index: 0;
   }
 
-  /* ── Header ── */
-  header {
-    width: 100%;
-    max-width: 720px;
-    padding: 20px 8px 0;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
+  .app-shell {
+    position: relative;
     z-index: 2;
-    flex-shrink: 0;
+    height: 100vh;
+    width: 100%;
+    max-width: 1180px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 320px minmax(0, 1fr);
+    gap: 18px;
+    padding: 16px;
   }
 
-  .logo {
+  .sidebar {
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 16px;
+    background: rgba(255,255,255,0.02);
+    backdrop-filter: blur(6px);
     display: flex;
-    align-items: center;
-    gap: 10px;
+    flex-direction: column;
+    min-height: 0;
   }
 
+  .sidebar-header {
+    padding: 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+
+  .logo { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
   .logo-mark {
-    width: 28px;
-    height: 28px;
-    border-radius: 8px;
+    width: 24px; height: 24px; border-radius: 7px;
     background: linear-gradient(135deg, var(--glow) 0%, transparent 100%);
     opacity: 0.7;
     transition: background 0.4s ease, opacity 0.4s ease;
   }
+  .logo h1 { font-size: 18px; font-weight: 600; color: var(--c-text-bright); }
+  .model-label { font-size: 11px; color: var(--c-text-dim); letter-spacing: 0.03em; }
 
-  .logo h1 {
+  .ctrl-btn {
     font-family: var(--font-body);
-    font-size: 20px;
+    font-size: 12px;
     font-weight: 600;
-    color: var(--c-text-bright);
-    letter-spacing: 0.01em;
+    padding: 8px 14px;
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 10px;
+    background: var(--c-surface);
+    color: var(--c-text);
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 0.02em;
+  }
+  .ctrl-btn:hover { background: var(--c-surface-hover); }
+  .ctrl-btn.active {
+    background: var(--c-listen-dim);
+    color: var(--c-listen);
+    border-color: rgba(74,222,128,0.15);
   }
 
-  .model-label {
-    font-size: 11px;
-    font-weight: 500;
-    color: var(--c-text-dim);
-    letter-spacing: 0.03em;
+  .thread-list {
+    overflow-y: auto;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-height: 0;
   }
 
-  .on-device-pill {
-    font-size: 10px;
-    font-weight: 500;
+  .thread-item {
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 10px;
+    background: var(--c-surface);
+    padding: 10px;
+    cursor: pointer;
+  }
+  .thread-item.active {
+    border-color: rgba(74,222,128,0.3);
+    box-shadow: inset 0 0 0 1px rgba(74,222,128,0.15);
+  }
+  .thread-item:hover { background: var(--c-surface-hover); }
+
+  .thread-row {
+    display: flex;
+    align-items: start;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .thread-title { font-size: 13px; color: var(--c-text-bright); line-height: 1.3; word-break: break-word; }
+  .thread-actions { display: flex; gap: 6px; }
+  .icon-btn {
+    border: none;
+    background: transparent;
     color: var(--c-text-dim);
-    letter-spacing: 0.03em;
-    text-transform: uppercase;
+    cursor: pointer;
+    font-size: 12px;
+  }
+  .icon-btn:hover { color: var(--c-text-bright); }
+  .thread-time { font-size: 11px; color: var(--c-text-dim); margin-top: 6px; }
+  .thread-edit { margin-top: 8px; display: flex; gap: 6px; }
+  .thread-edit input {
+    flex: 1;
+    background: rgba(255,255,255,0.03);
+    color: var(--c-text);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 8px;
+    padding: 6px 8px;
+    font-size: 12px;
+  }
+
+  .main-panel {
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 16px;
+    background: rgba(255,255,255,0.01);
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  header {
+    width: 100%;
+    padding: 14px;
     display: flex;
     align-items: center;
-    gap: 4px;
-  }
-
-  .on-device-pill svg {
-    width: 10px;
-    height: 10px;
+    justify-content: space-between;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    flex-shrink: 0;
   }
 
   .status-pill {
@@ -133,16 +194,13 @@
     gap: 6px;
     letter-spacing: 0.04em;
     text-transform: uppercase;
-    transition: color 0.3s, background 0.3s;
   }
-
   .status-pill::before {
     content: '';
     width: 6px;
     height: 6px;
     border-radius: 50%;
     background: var(--c-text-dim);
-    transition: background 0.3s;
   }
   .status-pill.connected { color: var(--c-listen); background: var(--c-listen-dim); }
   .status-pill.connected::before { background: var(--c-listen); }
@@ -151,21 +209,16 @@
   .status-pill.processing { color: var(--c-process); background: var(--c-process-dim); }
   .status-pill.processing::before { background: var(--c-process); }
 
-  /* ── Main stack ── */
   .portal-stack {
     flex: 1;
     width: 100%;
-    max-width: 720px;
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 20px 8px 16px;
-    gap: 0;
-    z-index: 2;
+    padding: 16px;
     min-height: 0;
   }
 
-  /* ── Webcam viewport ── */
   .viewport-wrap {
     position: relative;
     width: 100%;
@@ -174,8 +227,6 @@
     border-radius: 18px;
     flex-shrink: 0;
   }
-
-  /* Three glow layers */
   .viewport-wrap::before,
   .viewport-wrap::after,
   .viewport-glow {
@@ -186,90 +237,29 @@
     pointer-events: none;
     transition: box-shadow 0.4s ease, opacity 0.4s ease;
   }
+  .viewport-wrap::before { box-shadow: inset 0 0 30px var(--glow-dim), 0 0 15px var(--glow-dim); z-index: 3; animation: glow-breathe-1 3s ease-in-out infinite; }
+  .viewport-wrap::after { box-shadow: 0 0 40px 8px var(--glow-dim); z-index: 2; animation: glow-breathe-2 4s ease-in-out infinite; }
+  .viewport-glow { inset: -6px; border-radius: 22px; box-shadow: 0 0 80px 20px var(--glow-dim); z-index: 1; animation: glow-breathe-3 5s ease-in-out infinite; }
 
-  /* Layer 1 — tight inner glow */
-  .viewport-wrap::before {
-    box-shadow: inset 0 0 30px var(--glow-dim), 0 0 15px var(--glow-dim);
-    z-index: 3;
-    animation: glow-breathe-1 3s ease-in-out infinite;
-  }
+  @keyframes glow-breathe-1 { 0%,100%{opacity:.6;}50%{opacity:1;} }
+  @keyframes glow-breathe-2 { 0%,100%{opacity:.4;}50%{opacity:.8;} }
+  @keyframes glow-breathe-3 { 0%,100%{opacity:.2;}50%{opacity:.5;} }
 
-  /* Layer 2 — mid spread */
-  .viewport-wrap::after {
-    box-shadow: 0 0 40px 8px var(--glow-dim);
-    z-index: 2;
-    animation: glow-breathe-2 4s ease-in-out infinite;
-  }
-
-  /* Layer 3 — outer diffuse */
-  .viewport-glow {
-    inset: -6px;
-    border-radius: 22px;
-    box-shadow: 0 0 80px 20px var(--glow-dim);
-    z-index: 1;
-    animation: glow-breathe-3 5s ease-in-out infinite;
-  }
-
-  /* State: listening — gentle breathe */
-  @keyframes glow-breathe-1 {
-    0%, 100% { opacity: 0.6; }
-    50% { opacity: 1; }
-  }
-  @keyframes glow-breathe-2 {
-    0%, 100% { opacity: 0.4; }
-    50% { opacity: 0.8; }
-  }
-  @keyframes glow-breathe-3 {
-    0%, 100% { opacity: 0.2; }
-    50% { opacity: 0.5; }
-  }
-
-  /* State: processing — faster, tighter */
-  .viewport-wrap.processing::before { animation-duration: 0.8s; }
+  .viewport-wrap.processing::before { animation-duration: .8s; }
   .viewport-wrap.processing::after { animation-duration: 1.1s; }
-  .viewport-wrap.processing .viewport-glow { animation-duration: 1.4s; opacity: 0.3; }
-
-  /* State: speaking — smooth pulse driven by JS amplitude */
+  .viewport-wrap.processing .viewport-glow { animation-duration: 1.4s; opacity: .3; }
   .viewport-wrap.speaking::before,
   .viewport-wrap.speaking::after,
-  .viewport-wrap.speaking .viewport-glow {
-    animation: none;
-  }
+  .viewport-wrap.speaking .viewport-glow { animation: none; }
+  .viewport-wrap.loading::before { animation-duration: 5s; opacity: .3; }
+  .viewport-wrap.loading::after { animation-duration: 6s; opacity: .2; }
+  .viewport-wrap.loading .viewport-glow { animation-duration: 7s; opacity: .1; }
 
-  /* State: loading — very slow, dim */
-  .viewport-wrap.loading::before { animation-duration: 5s; opacity: 0.3; }
-  .viewport-wrap.loading::after { animation-duration: 6s; opacity: 0.2; }
-  .viewport-wrap.loading .viewport-glow { animation-duration: 7s; opacity: 0.1; }
+  video { display: block; width: 100%; height: 100%; object-fit: cover; border-radius: 18px; background: #0a0a10; transform: scaleX(-1); position: relative; z-index: 2; }
 
-  video {
-    display: block;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    border-radius: 18px;
-    background: #0a0a10;
-    transform: scaleX(-1);
-    position: relative;
-    z-index: 2;
-  }
+  .waveform-wrap { width: 100%; max-width: 480px; height: 52px; margin-top: 16px; flex-shrink: 0; }
+  #waveform { width: 100%; height: 100%; display: block; }
 
-  /* ── Waveform canvas ── */
-  .waveform-wrap {
-    width: 100%;
-    max-width: 480px;
-    height: 52px;
-    margin-top: 16px;
-    flex-shrink: 0;
-    position: relative;
-  }
-
-  #waveform {
-    width: 100%;
-    height: 100%;
-    display: block;
-  }
-
-  /* ── Transcript ── */
   .transcript {
     width: 100%;
     max-width: 640px;
@@ -281,76 +271,18 @@
     flex-direction: column;
     gap: 8px;
     padding: 0 4px 4px;
-    scrollbar-width: thin;
-    scrollbar-color: rgba(255,255,255,0.08) transparent;
-    mask-image: linear-gradient(to bottom, transparent 0%, black 12px, black 100%);
-    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 12px, black 100%);
   }
+  .msg { padding: 10px 14px; border-radius: 12px; font-size: 13.5px; line-height: 1.55; max-width: 85%; }
+  .msg.user { align-self: flex-end; background: rgba(74,222,128,0.08); color: #b0d8c0; border-bottom-right-radius: 4px; }
+  .msg.assistant { align-self: flex-start; background: var(--c-surface); color: var(--c-text); border-bottom-left-radius: 4px; }
+  .msg .meta { font-size: 10.5px; color: var(--c-text-dim); margin-top: 5px; }
 
-  .transcript::-webkit-scrollbar { width: 4px; }
-  .transcript::-webkit-scrollbar-track { background: transparent; }
-  .transcript::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 2px; }
+  .loading-dots { display: inline-flex; gap: 4px; align-items: center; height: 1.55em; }
+  .loading-dots span { width: 6px; height: 6px; border-radius: 50%; background: rgba(74,222,128,0.5); animation: dot-bounce 1.2s ease-in-out infinite; }
+  .loading-dots span:nth-child(2) { animation-delay: .15s; }
+  .loading-dots span:nth-child(3) { animation-delay: .3s; }
+  @keyframes dot-bounce { 0%,60%,100% { opacity:.3; transform:translateY(0);} 30% { opacity:1; transform:translateY(-4px);} }
 
-  .msg {
-    padding: 10px 14px;
-    border-radius: 12px;
-    font-size: 13.5px;
-    line-height: 1.55;
-    max-width: 85%;
-    animation: msg-in 0.25s ease-out;
-  }
-
-  @keyframes msg-in {
-    from { opacity: 0; transform: translateY(6px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-
-  .msg.user {
-    align-self: flex-end;
-    background: rgba(74,222,128,0.08);
-    color: #b0d8c0;
-    border-bottom-right-radius: 4px;
-  }
-
-  .msg.assistant {
-    align-self: flex-start;
-    background: var(--c-surface);
-    color: var(--c-text);
-    border-bottom-left-radius: 4px;
-  }
-
-  .msg .meta {
-    font-size: 10.5px;
-    color: var(--c-text-dim);
-    margin-top: 5px;
-    font-variant-numeric: tabular-nums;
-    letter-spacing: 0.02em;
-  }
-
-  .loading-dots {
-    display: inline-flex;
-    gap: 4px;
-    align-items: center;
-    height: 1.55em;
-  }
-
-  .loading-dots span {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: rgba(74,222,128,0.5);
-    animation: dot-bounce 1.2s ease-in-out infinite;
-  }
-
-  .loading-dots span:nth-child(2) { animation-delay: 0.15s; }
-  .loading-dots span:nth-child(3) { animation-delay: 0.3s; }
-
-  @keyframes dot-bounce {
-    0%, 60%, 100% { opacity: 0.3; transform: translateY(0); }
-    30% { opacity: 1; transform: translateY(-4px); }
-  }
-
-  /* ── Controls bar ── */
   .controls {
     width: 100%;
     max-width: 640px;
@@ -359,528 +291,619 @@
     align-items: center;
     justify-content: space-between;
     flex-shrink: 0;
-    z-index: 2;
   }
 
-  .ctrl-btn {
-    font-family: var(--font-body);
-    font-size: 12px;
-    font-weight: 600;
-    padding: 8px 16px;
-    border: 1px solid rgba(255,255,255,0.06);
-    border-radius: 10px;
-    background: var(--c-surface);
-    color: var(--c-text-dim);
-    cursor: pointer;
-    transition: all 0.2s;
-    letter-spacing: 0.02em;
-  }
-
-  .ctrl-btn:hover { background: var(--c-surface-hover); color: var(--c-text); }
-  .ctrl-btn.active {
-    background: var(--c-listen-dim);
-    color: var(--c-listen);
-    border-color: rgba(74,222,128,0.15);
-  }
-
-  .state-indicator {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 12.5px;
-    font-weight: 500;
-    color: var(--c-text-dim);
-    transition: color 0.3s;
-  }
-
-  .state-indicator .dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--glow);
-    transition: background 0.3s;
-    box-shadow: 0 0 8px var(--glow-dim);
-  }
+  .state-indicator { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--c-text-dim); }
+  .state-indicator .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--glow); box-shadow: 0 0 8px var(--glow-dim); }
   .state-indicator .dot.listening { animation: dot-pulse 2s ease-in-out infinite; }
-  .state-indicator .dot.processing { animation: dot-pulse 0.6s ease-in-out infinite; }
+  .state-indicator .dot.processing { animation: dot-pulse .6s ease-in-out infinite; }
   .state-indicator .dot.speaking { animation: dot-pulse 1s ease-in-out infinite; }
   .state-indicator .dot.loading { animation: dot-pulse 2.5s ease-in-out infinite; }
+  @keyframes dot-pulse { 0%,100% { opacity:1; transform:scale(1);} 50% { opacity:.4; transform:scale(.8);} }
 
-  @keyframes dot-pulse {
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50% { opacity: 0.4; transform: scale(0.8); }
+  .on-device-pill { font-size: 10px; color: var(--c-text-dim); text-transform: uppercase; display: flex; align-items: center; gap: 4px; }
+  .on-device-pill svg { width: 10px; height: 10px; }
+
+  @media (max-width: 980px) {
+    .app-shell { grid-template-columns: 1fr; height: auto; min-height: 100vh; }
+    .sidebar { max-height: 40vh; }
   }
-
 </style>
 </head>
-<body>
+<body x-data="parlorApp()" x-init="init()">
 
-<header>
-  <div class="logo">
-    <div class="logo-mark"></div>
-    <h1>Parlor</h1>
-  </div>
-  <span class="model-label">Gemma 4 E2B</span>
-  <div id="status" class="status-pill disconnected">Disconnected</div>
-</header>
-
-<div class="portal-stack">
-  <!-- Webcam viewport with glow layers -->
-  <div id="viewportWrap" class="viewport-wrap loading">
-    <div class="viewport-glow"></div>
-    <video id="video" autoplay muted playsinline></video>
-  </div>
-
-  <!-- Audio waveform visualizer -->
-  <div class="waveform-wrap">
-    <canvas id="waveform"></canvas>
-  </div>
-
-  <!-- Transcript -->
-  <div id="messages" class="transcript"></div>
-
-  <!-- Controls -->
-  <div class="controls">
-    <button id="cameraToggle" class="ctrl-btn active">Camera On</button>
-    <div class="state-indicator">
-      <div id="stateDot" class="dot loading"></div>
-      <span id="stateText">Loading...</span>
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="logo">
+        <div class="logo-mark"></div>
+        <h1>Parlor</h1>
+      </div>
+      <div class="model-label">Gemma 4 E2B</div>
+      <button class="ctrl-btn" style="margin-top:10px; width: 100%;" @click="createThread" :disabled="isLoadingThreads">+ New Thread</button>
     </div>
-    <span class="on-device-pill">
-      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="4" width="12" height="9" rx="2"/><path d="M5 4V3a3 3 0 0 1 6 0v1"/></svg>
-      On-device
-    </span>
-  </div>
+
+    <div class="thread-list">
+      <template x-if="isLoadingThreads">
+        <div class="thread-time">Loading threads…</div>
+      </template>
+      <template x-for="thread in threads" :key="thread.id">
+        <div class="thread-item" :class="{ active: activeThreadId === thread.id }" @click="selectThread(thread.id)">
+          <div class="thread-row">
+            <div class="thread-title" x-text="thread.title || 'Untitled thread'"></div>
+            <div class="thread-actions" @click.stop>
+              <button class="icon-btn" title="Edit" @click="startEditTitle(thread)">✎</button>
+              <button class="icon-btn" title="Delete" @click="deleteThread(thread.id)">🗑</button>
+            </div>
+          </div>
+          <div class="thread-time" x-text="formatTime(thread.updated_at)"></div>
+          <div class="thread-edit" x-show="isEditingTitle && editingThreadId === thread.id" @click.stop>
+            <input type="text" x-model="editingTitle" @keydown.enter.prevent="saveEditTitle(thread.id)" @keydown.escape.prevent="cancelEditTitle">
+            <button class="ctrl-btn" @click="saveEditTitle(thread.id)">Save</button>
+          </div>
+        </div>
+      </template>
+    </div>
+  </aside>
+
+  <section class="main-panel">
+    <header>
+      <div class="model-label" x-text="activeThreadTitle"></div>
+      <div id="status" class="status-pill disconnected" x-text="statusText"></div>
+    </header>
+
+    <div class="portal-stack">
+      <div id="viewportWrap" class="viewport-wrap loading">
+        <div class="viewport-glow"></div>
+        <video id="video" autoplay muted playsinline></video>
+      </div>
+
+      <div class="waveform-wrap">
+        <canvas id="waveform"></canvas>
+      </div>
+
+      <div id="messages" class="transcript">
+        <template x-for="msg in messages" :key="msg.id">
+          <div class="msg" :class="msg.role">
+            <template x-if="msg.loading">
+              <span class="loading-dots"><span></span><span></span><span></span></span>
+            </template>
+            <template x-if="!msg.loading">
+              <span x-text="msg.content"></span>
+            </template>
+            <div class="meta" x-show="msg.meta" x-text="msg.meta"></div>
+          </div>
+        </template>
+      </div>
+
+      <div class="controls">
+        <button id="cameraToggle" class="ctrl-btn active" @click="toggleCamera" :class="{ active: cameraEnabled }" x-text="cameraEnabled ? 'Camera On' : 'Camera Off'"></button>
+        <div class="state-indicator">
+          <div id="stateDot" class="dot loading"></div>
+          <span id="stateText">Loading...</span>
+        </div>
+        <span class="on-device-pill">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="4" width="12" height="9" rx="2"/><path d="M5 4V3a3 3 0 0 1 6 0v1"/></svg>
+          On-device
+        </span>
+      </div>
+    </div>
+  </section>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/ort.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.29/dist/bundle.min.js"></script>
 <script>
-const $ = id => document.getElementById(id);
-const video = $('video'), cameraToggle = $('cameraToggle');
-const messagesDiv = $('messages'), statusEl = $('status');
-const stateDot = $('stateDot'), stateText = $('stateText');
-const viewportWrap = $('viewportWrap');
-const waveformCanvas = $('waveform');
-const waveformCtx = waveformCanvas.getContext('2d');
+function parlorApp() {
+  return {
+    threads: [],
+    activeThreadId: null,
+    messages: [],
+    isEditingTitle: false,
+    editingThreadId: null,
+    editingTitle: '',
+    isLoadingThreads: false,
+    isLoadingMessages: false,
+    statusText: 'Disconnected',
+    statusClass: 'disconnected',
 
-let ws, mediaStream, myvad;
-let currentThreadId = null;
-let cameraEnabled = true;
-let audioCtx, currentSource;
-let state = 'loading';
-let ignoreIncomingAudio = false;
+    ws: null,
+    mediaStream: null,
+    myvad: null,
+    cameraEnabled: true,
+    audioCtx: null,
+    currentSource: null,
+    state: 'loading',
+    ignoreIncomingAudio: false,
+    speakingStartedAt: 0,
 
-// Streaming audio playback state
-let streamSampleRate = 24000;
-let streamNextTime = 0;         // When to schedule next chunk
-let streamSources = [];         // Active AudioBufferSourceNodes
-let streamTtsTime = null;
+    streamSampleRate: 24000,
+    streamNextTime: 0,
+    streamSources: [],
+    streamTtsTime: null,
 
-// ── Waveform Visualizer ──
-let analyser, micSource;
-const BAR_COUNT = 40;
-const BAR_GAP = 3;
-let waveformRAF;
-let ambientPhase = 0;
+    analyser: null,
+    micSource: null,
+    waveformCanvas: null,
+    waveformCtx: null,
+    BAR_COUNT: 40,
+    BAR_GAP: 3,
+    waveformRAF: null,
+    ambientPhase: 0,
 
-function initWaveformCanvas() {
-  const dpr = window.devicePixelRatio || 1;
-  const rect = waveformCanvas.getBoundingClientRect();
-  waveformCanvas.width = rect.width * dpr;
-  waveformCanvas.height = rect.height * dpr;
-  waveformCtx.scale(dpr, dpr);
-}
+    get activeThreadTitle() {
+      const t = this.threads.find(thread => thread.id === this.activeThreadId);
+      return t ? (t.title || 'Untitled thread') : 'No thread selected';
+    },
 
-function getStateColor() {
-  const colors = { listening: '#4ade80', processing: '#f59e0b', speaking: '#818cf8', loading: '#3a3d46' };
-  return colors[state] || colors.loading;
-}
+    formatTime(iso) {
+      if (!iso) return '';
+      return new Date(iso).toLocaleString();
+    },
 
-function drawWaveform() {
-  const w = waveformCanvas.getBoundingClientRect().width;
-  const h = waveformCanvas.getBoundingClientRect().height;
-  waveformCtx.clearRect(0, 0, w, h);
+    async init() {
+      this.video = document.getElementById('video');
+      this.stateDot = document.getElementById('stateDot');
+      this.stateText = document.getElementById('stateText');
+      this.viewportWrap = document.getElementById('viewportWrap');
+      this.statusEl = document.getElementById('status');
+      this.waveformCanvas = document.getElementById('waveform');
+      this.waveformCtx = this.waveformCanvas.getContext('2d');
 
-  const barWidth = (w - (BAR_COUNT - 1) * BAR_GAP) / BAR_COUNT;
-  const color = getStateColor();
-  waveformCtx.fillStyle = color;
+      this.initWaveformCanvas();
+      window.addEventListener('resize', () => this.initWaveformCanvas());
 
-  let dataArray = null;
-  if (analyser) {
-    dataArray = new Uint8Array(analyser.frequencyBinCount);
-    analyser.getByteFrequencyData(dataArray);
-  }
+      await this.startCamera();
+      await this.loadThreads();
+      this.connect();
 
-  for (let i = 0; i < BAR_COUNT; i++) {
-    let amplitude;
-    if (dataArray) {
-      // Map bar index to frequency bin
-      const binIndex = Math.floor((i / BAR_COUNT) * dataArray.length * 0.6);
-      amplitude = dataArray[binIndex] / 255;
-    }
+      this.myvad = await vad.MicVAD.new({
+        getStream: async () => new MediaStream(this.mediaStream.getAudioTracks()),
+        positiveSpeechThreshold: 0.5,
+        negativeSpeechThreshold: 0.25,
+        redemptionMs: 600,
+        minSpeechMs: 300,
+        preSpeechPadMs: 300,
+        onSpeechStart: () => this.handleSpeechStart(),
+        onSpeechEnd: (audio) => this.handleSpeechEnd(audio),
+        onVADMisfire: () => console.log('VAD misfire (too short)'),
+        onnxWASMBasePath: 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/',
+        baseAssetPath: 'https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.29/dist/',
+      });
+      this.myvad.start();
 
-    // If no real audio data or very quiet, use ambient drift
-    if (!dataArray || amplitude < 0.02) {
-      ambientPhase += 0.0001;
-      const drift = Math.sin(ambientPhase * 3 + i * 0.4) * 0.5 + 0.5;
-      amplitude = 0.03 + drift * 0.04;
-    }
+      const initAudio = () => {
+        this.ensureAudioCtx();
+        if (this.audioCtx.state === 'suspended') this.audioCtx.resume();
+        document.removeEventListener('click', initAudio);
+        document.removeEventListener('keydown', initAudio);
+      };
+      document.addEventListener('click', initAudio);
+      document.addEventListener('keydown', initAudio);
+      this.ensureAudioCtx();
 
-    const barH = Math.max(2, amplitude * (h - 4));
-    const x = i * (barWidth + BAR_GAP);
-    const y = (h - barH) / 2;
+      this.setState('listening');
+      this.drawWaveform();
+    },
 
-    waveformCtx.globalAlpha = 0.3 + amplitude * 0.7;
-    waveformCtx.beginPath();
-    const r = Math.min(barWidth / 2, barH / 2, 3);
-    waveformCtx.roundRect(x, y, barWidth, barH, r);
-    waveformCtx.fill();
-  }
+    async api(path, options = {}) {
+      const res = await fetch(path, {
+        headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+        ...options,
+      });
+      if (!res.ok) throw new Error(await res.text());
+      if (res.status === 204) return null;
+      return res.json();
+    },
 
-  waveformCtx.globalAlpha = 1;
-  waveformRAF = requestAnimationFrame(drawWaveform);
-}
-
-// ── Dynamic glow intensity for speaking state ──
-function updateSpeakingGlow() {
-  if (state !== 'speaking' || !analyser) return;
-  const data = new Uint8Array(analyser.frequencyBinCount);
-  analyser.getByteFrequencyData(data);
-  let sum = 0;
-  for (let i = 0; i < data.length; i++) sum += data[i];
-  const avg = sum / data.length / 255;
-  // Modulate the glow layers based on audio amplitude
-  const intensity = 0.3 + avg * 0.7;
-  viewportWrap.style.setProperty('--speak-intensity', intensity);
-  const spread = 20 + avg * 60;
-  const inner = 15 + avg * 25;
-  viewportWrap.querySelector('.viewport-glow').style.boxShadow =
-    `0 0 ${spread}px ${spread * 0.4}px rgba(129,140,248,${intensity * 0.25})`;
-  viewportWrap.style.boxShadow =
-    `inset 0 0 ${inner}px rgba(129,140,248,${intensity * 0.15}), 0 0 ${inner}px rgba(129,140,248,${intensity * 0.2})`;
-  requestAnimationFrame(updateSpeakingGlow);
-}
-
-// ── State Machine ──
-function setState(newState) {
-  state = newState;
-
-  // Update state indicator
-  stateDot.className = `dot ${newState}`;
-  const labels = { loading: 'Loading...', listening: 'Listening', processing: 'Thinking...', speaking: 'Speaking' };
-  stateText.textContent = labels[newState] || newState;
-
-  // Update viewport glow class
-  viewportWrap.className = `viewport-wrap ${newState}`;
-
-  // Reset inline styles from speaking glow
-  if (newState !== 'speaking') {
-    viewportWrap.style.boxShadow = '';
-    viewportWrap.querySelector('.viewport-glow').style.boxShadow = '';
-  }
-
-  // Update CSS custom properties for state color (must use resolved values, not nested var())
-  const stateVars = {
-    listening: ['#4ade80', 'rgba(74,222,128,0.12)'],
-    processing: ['#f59e0b', 'rgba(245,158,11,0.12)'],
-    speaking: ['#818cf8', 'rgba(129,140,248,0.12)'],
-    loading: ['#3a3d46', 'rgba(58,61,70,0.12)'],
-  };
-  const [glow, glowDim] = stateVars[newState] || stateVars.loading;
-  document.documentElement.style.setProperty('--glow', glow);
-  document.documentElement.style.setProperty('--glow-dim', glowDim);
-
-  // Kick off speaking glow animation
-  if (newState === 'speaking') requestAnimationFrame(updateSpeakingGlow);
-
-  // Raise VAD threshold during speaking to reduce echo false triggers
-  if (myvad) {
-    myvad.setOptions({ positiveSpeechThreshold: newState === 'speaking' ? 0.92 : 0.5 });
-  }
-
-  // Connect/disconnect mic analyser based on state
-  if (newState === 'listening' && mediaStream && audioCtx && analyser) {
-    if (!micSource) {
-      micSource = audioCtx.createMediaStreamSource(mediaStream);
-    }
-    try { micSource.connect(analyser); } catch {}
-  } else if (micSource && newState !== 'listening') {
-    try { micSource.disconnect(analyser); } catch {}
-  }
-}
-
-// ── WebSocket ──
-function connect() {
-  ws = new WebSocket(`ws://${location.host}/ws`);
-  ws.onopen = () => {
-    setStatus('connected', 'Connected');
-    if (state !== 'loading') setState('listening');
-  };
-  ws.onclose = () => {
-    setStatus('disconnected', 'Disconnected');
-    setTimeout(connect, 2000);
-  };
-  ws.onmessage = ({ data }) => {
-    const msg = JSON.parse(data);
-    if (msg.thread_id) {
-      currentThreadId = msg.thread_id;
-    }
-    if (msg.type === 'text') {
-      if (msg.transcription) {
-        const userMsgs = messagesDiv.querySelectorAll('.msg.user');
-        const lastUserMsg = userMsgs[userMsgs.length - 1];
-        if (lastUserMsg) {
-          const meta = lastUserMsg.querySelector('.meta');
-          lastUserMsg.innerHTML = `${msg.transcription}${meta ? meta.outerHTML : ''}`;
+    async loadThreads() {
+      this.isLoadingThreads = true;
+      try {
+        const data = await this.api('/api/threads');
+        this.threads = data.threads || [];
+        if (!this.activeThreadId && this.threads.length) {
+          await this.selectThread(this.threads[0].id);
         }
+      } finally {
+        this.isLoadingThreads = false;
       }
-      addMessage('assistant', msg.text, `LLM ${msg.llm_time}s`);
-    } else if (msg.type === 'audio_start') {
-      if (ignoreIncomingAudio) return;
-      streamSampleRate = msg.sample_rate || 24000;
-      startStreamPlayback();
-    } else if (msg.type === 'audio_chunk') {
-      if (ignoreIncomingAudio) return;
-      queueAudioChunk(msg.audio);
-    } else if (msg.type === 'audio_end') {
-      if (ignoreIncomingAudio) {
-        ignoreIncomingAudio = false;
-        stopPlayback();
-        setState('listening');
+    },
+
+    async selectThread(threadId) {
+      if (!threadId || this.activeThreadId === threadId) return;
+      this.activeThreadId = threadId;
+      await this.loadMessages(threadId);
+    },
+
+    async loadMessages(threadId) {
+      this.isLoadingMessages = true;
+      try {
+        const data = await this.api(`/api/threads/${threadId}/messages`);
+        this.messages = (data.messages || []).map(m => this.mapMessage(m));
+        this.$nextTick(() => {
+          const el = document.getElementById('messages');
+          if (el) el.scrollTop = el.scrollHeight;
+        });
+      } finally {
+        this.isLoadingMessages = false;
+      }
+    },
+
+    mapMessage(msg) {
+      let meta = '';
+      if (msg.llm_time != null) meta = `LLM ${msg.llm_time}s`;
+      if (msg.tts_time != null) meta = meta ? `${meta} · TTS ${msg.tts_time}s` : `TTS ${msg.tts_time}s`;
+      return {
+        id: msg.id,
+        role: msg.role,
+        content: msg.role === 'user' ? (msg.transcription || msg.content) : msg.content,
+        meta,
+        loading: false,
+      };
+    },
+
+    async createThread() {
+      const data = await this.api('/api/threads', { method: 'POST', body: JSON.stringify({}) });
+      const thread = data.thread;
+      this.threads.unshift(thread);
+      await this.selectThread(thread.id);
+    },
+
+    startEditTitle(thread) {
+      this.isEditingTitle = true;
+      this.editingThreadId = thread.id;
+      this.editingTitle = thread.title || '';
+    },
+
+    cancelEditTitle() {
+      this.isEditingTitle = false;
+      this.editingThreadId = null;
+      this.editingTitle = '';
+    },
+
+    async saveEditTitle(threadId) {
+      const title = this.editingTitle.trim();
+      if (!title) return this.cancelEditTitle();
+      const data = await this.api(`/api/threads/${threadId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ title }),
+      });
+      this.threads = this.threads.map(t => t.id === threadId ? data.thread : t);
+      this.cancelEditTitle();
+    },
+
+    async deleteThread(threadId) {
+      const idx = this.threads.findIndex(t => t.id === threadId);
+      if (idx === -1) return;
+      const fallback = this.threads[idx + 1]?.id || this.threads[idx - 1]?.id || null;
+      this.threads = this.threads.filter(t => t.id !== threadId);
+      if (this.activeThreadId === threadId) {
+        this.activeThreadId = null;
+        this.messages = [];
+      }
+      await this.api(`/api/threads/${threadId}`, { method: 'DELETE' });
+      if (fallback) {
+        await this.selectThread(fallback);
+      }
+    },
+
+    connect() {
+      this.ws = new WebSocket(`ws://${location.host}/ws`);
+      this.ws.onopen = () => {
+        this.setStatus('connected', 'Connected');
+        if (this.state !== 'loading') this.setState('listening');
+      };
+      this.ws.onclose = () => {
+        this.setStatus('disconnected', 'Disconnected');
+        setTimeout(() => this.connect(), 2000);
+      };
+      this.ws.onmessage = ({ data }) => {
+        const msg = JSON.parse(data);
+        if (msg.thread_id) {
+          this.activeThreadId = msg.thread_id;
+          const hasThread = this.threads.some(t => t.id === msg.thread_id);
+          if (!hasThread) this.loadThreads();
+        }
+        if (msg.type === 'text') {
+          if (msg.transcription) {
+            for (let i = this.messages.length - 1; i >= 0; i--) {
+              const m = this.messages[i];
+              if (m.role === 'user' && m.loading) {
+                m.loading = false;
+                m.content = msg.transcription;
+                break;
+              }
+            }
+          }
+          this.addMessage('assistant', msg.text, `LLM ${msg.llm_time}s`);
+        } else if (msg.type === 'audio_start') {
+          if (this.ignoreIncomingAudio) return;
+          this.streamSampleRate = msg.sample_rate || 24000;
+          this.startStreamPlayback();
+        } else if (msg.type === 'audio_chunk') {
+          if (this.ignoreIncomingAudio) return;
+          this.queueAudioChunk(msg.audio);
+        } else if (msg.type === 'audio_end') {
+          if (this.ignoreIncomingAudio) {
+            this.ignoreIncomingAudio = false;
+            this.stopPlayback();
+            this.setState('listening');
+            return;
+          }
+          const lastAssistant = [...this.messages].reverse().find(m => m.role === 'assistant');
+          if (lastAssistant) lastAssistant.meta = `${lastAssistant.meta} · TTS ${msg.tts_time}s`;
+        } else if (msg.type === 'error') {
+          this.addMessage('assistant', msg.detail || 'Thread error', '');
+        }
+      };
+    },
+
+    setStatus(cls, text) {
+      this.statusClass = cls;
+      this.statusText = text;
+      this.statusEl.className = `status-pill ${cls}`;
+      this.statusEl.textContent = text;
+    },
+
+    async startCamera() {
+      try {
+        this.mediaStream = await navigator.mediaDevices.getUserMedia({
+          video: { width: 640, height: 480, facingMode: 'user' },
+          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+        });
+        this.video.srcObject = this.mediaStream;
         return;
+      } catch (e) { console.warn('Video+audio failed:', e.message); }
+
+      const streams = await Promise.allSettled([
+        navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480, facingMode: 'user' } }),
+        navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } }),
+      ]);
+      this.mediaStream = new MediaStream();
+      streams.forEach(r => { if (r.status === 'fulfilled') r.value.getTracks().forEach(t => this.mediaStream.addTrack(t)); });
+      if (this.mediaStream.getVideoTracks().length) this.video.srcObject = this.mediaStream;
+      if (!this.mediaStream.getAudioTracks().length) this.cameraEnabled = false;
+    },
+
+    toggleCamera() {
+      this.cameraEnabled = !this.cameraEnabled;
+      this.video.style.opacity = this.cameraEnabled ? 1 : 0.3;
+    },
+
+    captureFrame() {
+      if (!this.cameraEnabled || !this.video.videoWidth) return null;
+      const canvas = document.createElement('canvas');
+      const scale = 320 / this.video.videoWidth;
+      canvas.width = 320;
+      canvas.height = this.video.videoHeight * scale;
+      canvas.getContext('2d').drawImage(this.video, 0, 0, canvas.width, canvas.height);
+      return canvas.toDataURL('image/jpeg', 0.7).split(',')[1];
+    },
+
+    handleSpeechStart() {
+      const BARGE_IN_GRACE_MS = 800;
+      if (this.state === 'speaking') {
+        if (Date.now() - this.speakingStartedAt < BARGE_IN_GRACE_MS) return;
+        this.stopPlayback();
+        this.ignoreIncomingAudio = true;
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+          const interruptPayload = { type: 'interrupt' };
+          if (this.activeThreadId) interruptPayload.thread_id = this.activeThreadId;
+          this.ws.send(JSON.stringify(interruptPayload));
+        }
+        this.setState('listening');
       }
-      streamTtsTime = msg.tts_time;
-      const meta = messagesDiv.querySelector('.msg.assistant:last-child .meta');
-      if (meta) meta.textContent += ` · TTS ${msg.tts_time}s`;
-    } else if (msg.type === 'error') {
-      addMessage('assistant', msg.detail || 'Thread error');
-    }
+    },
+
+    handleSpeechEnd(audio) {
+      if (this.state !== 'listening') return;
+      if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+
+      const wavBase64 = this.float32ToWavBase64(audio);
+      const imageBase64 = this.captureFrame();
+
+      this.setState('processing');
+      this.setStatus('processing', 'Processing');
+      this.addMessage('user', '', imageBase64 ? 'with camera' : '', true);
+
+      const payload = { audio: wavBase64 };
+      if (this.activeThreadId) payload.thread_id = this.activeThreadId;
+      if (imageBase64) payload.image = imageBase64;
+      this.ws.send(JSON.stringify(payload));
+    },
+
+    float32ToWavBase64(samples) {
+      const buf = new ArrayBuffer(44 + samples.length * 2);
+      const v = new DataView(buf);
+      const w = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+      w(0,'RIFF'); v.setUint32(4, 36 + samples.length * 2, true); w(8,'WAVE'); w(12,'fmt ');
+      v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+      v.setUint32(24, 16000, true); v.setUint32(28, 32000, true); v.setUint16(32, 2, true);
+      v.setUint16(34, 16, true); w(36,'data'); v.setUint32(40, samples.length * 2, true);
+      for (let i = 0; i < samples.length; i++) {
+        const s = Math.max(-1, Math.min(1, samples[i]));
+        v.setInt16(44 + i * 2, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+      }
+      const bytes = new Uint8Array(buf);
+      let bin = ''; for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+      return btoa(bin);
+    },
+
+    stopPlayback() {
+      for (const src of this.streamSources) {
+        try { src.stop(); } catch {}
+      }
+      this.streamSources = [];
+      this.currentSource = null;
+      this.streamNextTime = 0;
+    },
+
+    ensureAudioCtx() {
+      if (!this.audioCtx) {
+        this.audioCtx = new AudioContext();
+        this.analyser = this.audioCtx.createAnalyser();
+        this.analyser.fftSize = 256;
+        this.analyser.smoothingTimeConstant = 0.75;
+      }
+    },
+
+    startStreamPlayback() {
+      this.stopPlayback();
+      this.ensureAudioCtx();
+      if (this.audioCtx.state === 'suspended') this.audioCtx.resume();
+      this.streamNextTime = this.audioCtx.currentTime + 0.05;
+      this.speakingStartedAt = Date.now();
+      this.setState('speaking');
+    },
+
+    queueAudioChunk(base64Pcm) {
+      this.ensureAudioCtx();
+      const bin = atob(base64Pcm);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const int16 = new Int16Array(bytes.buffer);
+      const float32 = new Float32Array(int16.length);
+      for (let i = 0; i < int16.length; i++) float32[i] = int16[i] / 32768;
+
+      const audioBuffer = this.audioCtx.createBuffer(1, float32.length, this.streamSampleRate);
+      audioBuffer.getChannelData(0).set(float32);
+
+      const source = this.audioCtx.createBufferSource();
+      source.buffer = audioBuffer;
+      source.connect(this.audioCtx.destination);
+      source.connect(this.analyser);
+
+      const startAt = Math.max(this.streamNextTime, this.audioCtx.currentTime);
+      source.start(startAt);
+      this.streamNextTime = startAt + audioBuffer.duration;
+
+      this.streamSources.push(source);
+      this.currentSource = source;
+
+      source.onended = () => {
+        const idx = this.streamSources.indexOf(source);
+        if (idx !== -1) this.streamSources.splice(idx, 1);
+        if (this.streamSources.length === 0 && this.state === 'speaking') {
+          this.currentSource = null;
+          this.setState('listening');
+          this.setStatus('connected', 'Connected');
+        }
+      };
+    },
+
+    addMessage(role, text, meta = '', loading = false) {
+      this.messages.push({ id: crypto.randomUUID(), role, content: text, meta, loading });
+      this.$nextTick(() => {
+        const el = document.getElementById('messages');
+        if (el) el.scrollTop = el.scrollHeight;
+      });
+    },
+
+    initWaveformCanvas() {
+      const dpr = window.devicePixelRatio || 1;
+      const rect = this.waveformCanvas.getBoundingClientRect();
+      this.waveformCanvas.width = rect.width * dpr;
+      this.waveformCanvas.height = rect.height * dpr;
+      this.waveformCtx.setTransform(1, 0, 0, 1, 0, 0);
+      this.waveformCtx.scale(dpr, dpr);
+    },
+
+    getStateColor() {
+      const colors = { listening: '#4ade80', processing: '#f59e0b', speaking: '#818cf8', loading: '#3a3d46' };
+      return colors[this.state] || colors.loading;
+    },
+
+    drawWaveform() {
+      const w = this.waveformCanvas.getBoundingClientRect().width;
+      const h = this.waveformCanvas.getBoundingClientRect().height;
+      this.waveformCtx.clearRect(0, 0, w, h);
+
+      const barWidth = (w - (this.BAR_COUNT - 1) * this.BAR_GAP) / this.BAR_COUNT;
+      this.waveformCtx.fillStyle = this.getStateColor();
+
+      let dataArray = null;
+      if (this.analyser) {
+        dataArray = new Uint8Array(this.analyser.frequencyBinCount);
+        this.analyser.getByteFrequencyData(dataArray);
+      }
+
+      for (let i = 0; i < this.BAR_COUNT; i++) {
+        let amplitude;
+        if (dataArray) {
+          const binIndex = Math.floor((i / this.BAR_COUNT) * dataArray.length * 0.6);
+          amplitude = dataArray[binIndex] / 255;
+        }
+        if (!dataArray || amplitude < 0.02) {
+          this.ambientPhase += 0.0001;
+          const drift = Math.sin(this.ambientPhase * 3 + i * 0.4) * 0.5 + 0.5;
+          amplitude = 0.03 + drift * 0.04;
+        }
+
+        const barH = Math.max(2, amplitude * (h - 4));
+        const x = i * (barWidth + this.BAR_GAP);
+        const y = (h - barH) / 2;
+
+        this.waveformCtx.globalAlpha = 0.3 + amplitude * 0.7;
+        this.waveformCtx.beginPath();
+        const r = Math.min(barWidth / 2, barH / 2, 3);
+        this.waveformCtx.roundRect(x, y, barWidth, barH, r);
+        this.waveformCtx.fill();
+      }
+
+      this.waveformCtx.globalAlpha = 1;
+      this.waveformRAF = requestAnimationFrame(() => this.drawWaveform());
+    },
+
+    updateSpeakingGlow() {
+      if (this.state !== 'speaking' || !this.analyser) return;
+      const data = new Uint8Array(this.analyser.frequencyBinCount);
+      this.analyser.getByteFrequencyData(data);
+      let sum = 0;
+      for (let i = 0; i < data.length; i++) sum += data[i];
+      const avg = sum / data.length / 255;
+      const intensity = 0.3 + avg * 0.7;
+      const spread = 20 + avg * 60;
+      const inner = 15 + avg * 25;
+      this.viewportWrap.querySelector('.viewport-glow').style.boxShadow = `0 0 ${spread}px ${spread * 0.4}px rgba(129,140,248,${intensity * 0.25})`;
+      this.viewportWrap.style.boxShadow = `inset 0 0 ${inner}px rgba(129,140,248,${intensity * 0.15}), 0 0 ${inner}px rgba(129,140,248,${intensity * 0.2})`;
+      requestAnimationFrame(() => this.updateSpeakingGlow());
+    },
+
+    setState(newState) {
+      this.state = newState;
+      this.stateDot.className = `dot ${newState}`;
+      const labels = { loading: 'Loading...', listening: 'Listening', processing: 'Thinking...', speaking: 'Speaking' };
+      this.stateText.textContent = labels[newState] || newState;
+      this.viewportWrap.className = `viewport-wrap ${newState}`;
+
+      if (newState !== 'speaking') {
+        this.viewportWrap.style.boxShadow = '';
+        this.viewportWrap.querySelector('.viewport-glow').style.boxShadow = '';
+      }
+
+      const stateVars = {
+        listening: ['#4ade80', 'rgba(74,222,128,0.12)'],
+        processing: ['#f59e0b', 'rgba(245,158,11,0.12)'],
+        speaking: ['#818cf8', 'rgba(129,140,248,0.12)'],
+        loading: ['#3a3d46', 'rgba(58,61,70,0.12)'],
+      };
+      const [glow, glowDim] = stateVars[newState] || stateVars.loading;
+      document.documentElement.style.setProperty('--glow', glow);
+      document.documentElement.style.setProperty('--glow-dim', glowDim);
+
+      if (newState === 'speaking') requestAnimationFrame(() => this.updateSpeakingGlow());
+      if (this.myvad) this.myvad.setOptions({ positiveSpeechThreshold: newState === 'speaking' ? 0.92 : 0.5 });
+
+      if (newState === 'listening' && this.mediaStream && this.audioCtx && this.analyser) {
+        if (!this.micSource) this.micSource = this.audioCtx.createMediaStreamSource(this.mediaStream);
+        try { this.micSource.connect(this.analyser); } catch {}
+      } else if (this.micSource && newState !== 'listening') {
+        try { this.micSource.disconnect(this.analyser); } catch {}
+      }
+    },
   };
 }
-
-function setStatus(cls, text) { statusEl.className = `status-pill ${cls}`; statusEl.textContent = text; }
-
-// ── Camera ──
-async function startCamera() {
-  try {
-    mediaStream = await navigator.mediaDevices.getUserMedia({
-      video: { width: 640, height: 480, facingMode: 'user' },
-      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-    });
-    video.srcObject = mediaStream;
-    return;
-  } catch (e) { console.warn('Video+audio failed:', e.message); }
-
-  const streams = await Promise.allSettled([
-    navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480, facingMode: 'user' } }),
-    navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } }),
-  ]);
-  mediaStream = new MediaStream();
-  streams.forEach(r => { if (r.status === 'fulfilled') r.value.getTracks().forEach(t => mediaStream.addTrack(t)); });
-  if (mediaStream.getVideoTracks().length) video.srcObject = mediaStream;
-  if (!mediaStream.getAudioTracks().length) { cameraEnabled = false; }
-}
-
-function captureFrame() {
-  if (!cameraEnabled || !video.videoWidth) return null;
-  const canvas = document.createElement('canvas');
-  const scale = 320 / video.videoWidth;
-  canvas.width = 320; canvas.height = video.videoHeight * scale;
-  canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
-  return canvas.toDataURL('image/jpeg', 0.7).split(',')[1];
-}
-
-// ── VAD Handlers ──
-let speakingStartedAt = 0;
-const BARGE_IN_GRACE_MS = 800; // Ignore VAD triggers shortly after TTS starts (echo)
-
-function handleSpeechStart() {
-  if (state === 'speaking') {
-    // Ignore echo: don't allow barge-in right after TTS starts playing
-    if (Date.now() - speakingStartedAt < BARGE_IN_GRACE_MS) {
-      console.log('Barge-in suppressed (echo grace period)');
-      return;
-    }
-    stopPlayback();
-    ignoreIncomingAudio = true;
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      const interruptPayload = { type: 'interrupt' };
-      if (currentThreadId) interruptPayload.thread_id = currentThreadId;
-      ws.send(JSON.stringify(interruptPayload));
-    }
-    setState('listening');
-    console.log('Barge-in: interrupted playback');
-  }
-}
-
-function handleSpeechEnd(audio) {
-  if (state !== 'listening') return;
-  if (!ws || ws.readyState !== WebSocket.OPEN) return;
-
-  const wavBase64 = float32ToWavBase64(audio);
-  const imageBase64 = captureFrame();
-
-  setState('processing');
-  setStatus('processing', 'Processing');
-  addMessage('user', '<span class="loading-dots"><span></span><span></span><span></span></span>', imageBase64 ? 'with camera' : '');
-
-  const payload = { audio: wavBase64 };
-  if (currentThreadId) payload.thread_id = currentThreadId;
-  if (imageBase64) payload.image = imageBase64;
-  ws.send(JSON.stringify(payload));
-}
-
-// ── Float32 @ 16kHz → WAV base64 ──
-function float32ToWavBase64(samples) {
-  const buf = new ArrayBuffer(44 + samples.length * 2);
-  const v = new DataView(buf);
-  const w = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
-  w(0,'RIFF'); v.setUint32(4, 36 + samples.length * 2, true); w(8,'WAVE'); w(12,'fmt ');
-  v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
-  v.setUint32(24, 16000, true); v.setUint32(28, 32000, true); v.setUint16(32, 2, true);
-  v.setUint16(34, 16, true); w(36,'data'); v.setUint32(40, samples.length * 2, true);
-  for (let i = 0; i < samples.length; i++) {
-    const s = Math.max(-1, Math.min(1, samples[i]));
-    v.setInt16(44 + i * 2, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
-  }
-  const bytes = new Uint8Array(buf);
-  let bin = ''; for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
-  return btoa(bin);
-}
-
-// ── Streaming Playback ──
-function stopPlayback() {
-  for (const src of streamSources) {
-    try { src.stop(); } catch {}
-  }
-  streamSources = [];
-  currentSource = null;
-  streamNextTime = 0;
-}
-
-function ensureAudioCtx() {
-  if (!audioCtx) {
-    audioCtx = new AudioContext();
-    analyser = audioCtx.createAnalyser();
-    analyser.fftSize = 256;
-    analyser.smoothingTimeConstant = 0.75;
-  }
-}
-
-function startStreamPlayback() {
-  stopPlayback();
-  ensureAudioCtx();
-  if (audioCtx.state === 'suspended') audioCtx.resume();
-  streamNextTime = audioCtx.currentTime + 0.05; // Small initial buffer
-  speakingStartedAt = Date.now();
-  setState('speaking');
-}
-
-function queueAudioChunk(base64Pcm) {
-  ensureAudioCtx();
-
-  // Decode base64 -> Int16 PCM -> Float32
-  const bin = atob(base64Pcm);
-  const bytes = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-  const int16 = new Int16Array(bytes.buffer);
-  const float32 = new Float32Array(int16.length);
-  for (let i = 0; i < int16.length; i++) float32[i] = int16[i] / 32768;
-
-  // Create AudioBuffer and schedule it
-  const audioBuffer = audioCtx.createBuffer(1, float32.length, streamSampleRate);
-  audioBuffer.getChannelData(0).set(float32);
-
-  const source = audioCtx.createBufferSource();
-  source.buffer = audioBuffer;
-  source.connect(audioCtx.destination);
-  source.connect(analyser);
-
-  // Schedule gapless playback
-  const startAt = Math.max(streamNextTime, audioCtx.currentTime);
-  source.start(startAt);
-  streamNextTime = startAt + audioBuffer.duration;
-
-  streamSources.push(source);
-  currentSource = source;
-
-  // Clean up when this chunk finishes
-  source.onended = () => {
-    const idx = streamSources.indexOf(source);
-    if (idx !== -1) streamSources.splice(idx, 1);
-    // If this was the last chunk and no more are queued, return to listening
-    if (streamSources.length === 0 && state === 'speaking') {
-      currentSource = null;
-      setState('listening');
-      setStatus('connected', 'Connected');
-    }
-  };
-}
-
-// ── UI ──
-function addMessage(role, text, meta) {
-  const div = document.createElement('div');
-  div.className = `msg ${role}`;
-  div.innerHTML = `${text}${meta ? `<div class="meta">${meta}</div>` : ''}`;
-  messagesDiv.appendChild(div);
-  messagesDiv.scrollTop = messagesDiv.scrollHeight;
-}
-
-cameraToggle.addEventListener('click', () => {
-  cameraEnabled = !cameraEnabled;
-  cameraToggle.classList.toggle('active', cameraEnabled);
-  cameraToggle.textContent = cameraEnabled ? 'Camera On' : 'Camera Off';
-  video.style.opacity = cameraEnabled ? 1 : 0.3;
-});
-
-// ── Init ──
-async function init() {
-  initWaveformCanvas();
-  window.addEventListener('resize', initWaveformCanvas);
-
-  await startCamera();
-  connect();
-
-  // Initialize VAD with shared mic stream
-  myvad = await vad.MicVAD.new({
-    getStream: async () => new MediaStream(mediaStream.getAudioTracks()),
-    positiveSpeechThreshold: 0.5,
-    negativeSpeechThreshold: 0.25,
-    redemptionMs: 600,
-    minSpeechMs: 300,
-    preSpeechPadMs: 300,
-    onSpeechStart: handleSpeechStart,
-    onSpeechEnd: handleSpeechEnd,
-    onVADMisfire: () => { console.log('VAD misfire (too short)'); },
-    onnxWASMBasePath: "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/",
-    baseAssetPath: "https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.29/dist/",
-  });
-
-  myvad.start();
-
-  // Init audio context on first user gesture for mic visualizer
-  // (browsers require user interaction to create AudioContext)
-  const initAudio = () => {
-    ensureAudioCtx();
-    if (audioCtx.state === 'suspended') audioCtx.resume();
-    document.removeEventListener('click', initAudio);
-    document.removeEventListener('keydown', initAudio);
-  };
-  document.addEventListener('click', initAudio);
-  document.addEventListener('keydown', initAudio);
-  // Also try immediately (may work if page had prior interaction)
-  ensureAudioCtx();
-
-  setState('listening');
-
-  // Start waveform loop
-  drawWaveform();
-
-  console.log('VAD initialized and listening');
-}
-
-init();
 </script>
 </body>
 </html>
