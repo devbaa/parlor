@@ -1,168 +1,170 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Parlor</title>
-<!-- CSRF_META -->
-<!-- VITE_CSS -->
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Parlor</title>
+  <!-- CSRF_META -->
+  <!-- VITE_CSS -->
 </head>
 <body x-data="parlorApp()" x-init="init()" x-bind:data-theme="resolvedTheme">
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="Thread sidebar">
+      <div class="sidebar-header">
+        <div class="logo">
+          <div class="logo-mark"></div>
+          <h1>Parlor</h1>
+        </div>
 
-<div class="app-shell">
-  <aside class="sidebar">
-    <div class="sidebar-header">
-      <div class="logo">
-        <div class="logo-mark"></div>
-        <h1>Parlor</h1>
-      </div>
-      <div class="model-label">Gemma 4 E2B</div>
-      <div class="sidebar-actions">
-        <button class="ctrl-btn" @click="createThread" :disabled="isLoadingThreads">+ New Thread</button>
-        <button class="ctrl-btn" @click="openSettings">Settings</button>
-      </div>
-    </div>
+        <div class="model-label">Gemma 4 E2B</div>
 
-    <div class="thread-list">
-      <template x-if="isLoadingThreads">
-        <div class="thread-time">Loading threads…</div>
-      </template>
-      <template x-for="thread in threads" :key="thread.id">
-        <div class="thread-item" :class="{ active: activeThreadId === thread.id }" @click="selectThread(thread.id)">
-          <div class="thread-row">
-            <div class="thread-title" x-text="thread.title || 'Untitled thread'"></div>
-            <div class="thread-actions" @click.stop>
-              <button class="icon-btn" title="Edit" @click="startEditTitle(thread)">✎</button>
-              <button class="icon-btn" title="Delete" @click="deleteThread(thread.id)">🗑</button>
+        <div class="sidebar-actions">
+          <button class="ctrl-btn" @click="createThread" :disabled="isLoadingThreads">New Thread</button>
+          <button class="ctrl-btn" @click="openSettings">Settings</button>
+        </div>
+      </div>
+
+      <div class="thread-list">
+        <template x-if="isLoadingThreads">
+          <div class="thread-time">Loading threads…</div>
+        </template>
+
+        <template x-for="thread in threads" :key="thread.id">
+          <div class="thread-item" :class="{ active: activeThreadId === thread.id }" @click="selectThread(thread.id)">
+            <div class="thread-row">
+              <div class="thread-title" x-text="thread.title || 'Untitled thread'"></div>
+
+              <div class="thread-actions" @click.stop>
+                <button class="icon-btn" title="Edit" aria-label="Edit thread" @click="startEditTitle(thread)">
+                  <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                    <path d="M12.854.146a.5.5 0 0 1 .707 0l2.586 2.586a.5.5 0 0 1 0 .707l-9.5 9.5a.5.5 0 0 1-.168.11l-4 1.5a.5.5 0 0 1-.643-.643l1.5-4a.5.5 0 0 1 .11-.168zM11.207 2L3 10.207V13h2.793L14 4.793z"/>
+                  </svg>
+                </button>
+                <button class="icon-btn" title="Delete" aria-label="Delete thread" @click="deleteThread(thread.id)">
+                  <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                    <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0A.5.5 0 0 1 8.5 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z"/>
+                    <path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1 0-2H5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1h2.5a1 1 0 0 1 1 1M6 2v1h4V2z"/>
+                  </svg>
+                </button>
+              </div>
             </div>
-          </div>
-          <div class="thread-time" x-text="formatTime(thread.updated_at)"></div>
-          <div class="thread-edit" x-show="isEditingTitle && editingThreadId === thread.id" @click.stop>
-            <input type="text" x-model="editingTitle" @keydown.enter.prevent="saveEditTitle(thread.id)" @keydown.escape.prevent="cancelEditTitle">
-            <button class="ctrl-btn" @click="saveEditTitle(thread.id)">Save</button>
-          </div>
-        </div>
-      </template>
-    </div>
-  </aside>
 
-  <section class="main-panel">
-    <header>
-      <div class="model-label" x-text="activeThreadTitle"></div>
-      <div id="status" class="status-pill disconnected" x-text="statusText"></div>
-    </header>
+            <div class="thread-time" x-text="formatTime(thread.updated_at)"></div>
 
-    <div class="portal-stack">
-      <template x-if="browserWarnings.length">
-        <div class="api-warning">
-          Browser compatibility warning: <span x-text="browserWarnings.join(', ')"></span>
-        </div>
-      </template>
-
-      <div id="viewportWrap" class="viewport-wrap loading">
-        <div class="viewport-glow"></div>
-        <video id="video" autoplay muted playsinline></video>
-      </div>
-
-      <div class="waveform-wrap">
-        <canvas id="waveform"></canvas>
-      </div>
-
-      <div id="messages" class="transcript">
-        <template x-for="msg in messages" :key="msg.id">
-          <div class="msg" :class="msg.role">
-            <template x-if="msg.loading">
-              <span class="loading-dots"><span></span><span></span><span></span></span>
-            </template>
-            <template x-if="!msg.loading">
-              <span x-text="msg.content"></span>
-            </template>
-            <div class="meta" x-show="msg.meta" x-text="msg.meta"></div>
+            <div class="thread-edit" x-show="isEditingTitle && editingThreadId === thread.id" @click.stop>
+              <input type="text" x-model="editingTitle" @keydown.enter.prevent="saveEditTitle(thread.id)" @keydown.escape.prevent="cancelEditTitle">
+              <button class="ctrl-btn" @click="saveEditTitle(thread.id)">Save</button>
+            </div>
           </div>
         </template>
       </div>
+    </aside>
 
-      <div class="controls">
-        <button id="cameraToggle" class="ctrl-btn active" @click="toggleCamera" :class="{ active: cameraEnabled }" x-text="cameraEnabled ? 'Camera On' : 'Camera Off'"></button>
-        <div class="state-indicator">
-          <div id="stateDot" class="dot loading"></div>
-          <span id="stateText">Loading...</span>
+    <section class="main-panel">
+      <header>
+        <div class="model-label" x-text="activeThreadTitle"></div>
+        <div id="status" class="status-pill disconnected" x-text="statusText"></div>
+      </header>
+
+      <div class="portal-stack">
+        <template x-if="browserWarnings.length">
+          <div class="api-warning">
+            Browser compatibility warning: <span x-text="browserWarnings.join(', ')"></span>
+          </div>
+        </template>
+
+        <div id="viewportWrap" class="viewport-wrap loading">
+          <div class="viewport-glow"></div>
+          <video id="video" autoplay muted playsinline></video>
         </div>
-        <span class="on-device-pill">
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="4" width="12" height="9" rx="2"/><path d="M5 4V3a3 3 0 0 1 6 0v1"/></svg>
-          On-device
-        </span>
+
+        <div class="waveform-wrap">
+          <canvas id="waveform"></canvas>
+        </div>
+
+        <div id="messages" class="transcript">
+          <template x-for="msg in messages" :key="msg.id">
+            <div class="msg" :class="msg.role">
+              <template x-if="msg.loading">
+                <span class="loading-dots"><span></span><span></span><span></span></span>
+              </template>
+              <template x-if="!msg.loading">
+                <span x-text="msg.content"></span>
+              </template>
+              <div class="meta" x-show="msg.meta" x-text="msg.meta"></div>
+            </div>
+          </template>
+        </div>
+
+        <div class="controls">
+          <button
+            id="cameraToggle"
+            class="ctrl-btn active"
+            @click="toggleCamera"
+            :class="{ active: cameraEnabled }"
+            x-text="cameraEnabled ? 'Camera On' : 'Camera Off'"
+          ></button>
+
+          <div class="state-indicator">
+            <div id="stateDot" class="dot loading"></div>
+            <span id="stateText">Loading...</span>
+          </div>
+
+          <span class="on-device-pill">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+              <rect x="2" y="4" width="12" height="9" rx="2"/>
+              <path d="M5 4V3a3 3 0 0 1 6 0v1"/>
+            </svg>
+            On-device
+          </span>
+        </div>
       </div>
-    </div>
-  </section>
-</div>
-
-<div class="settings-overlay" x-show="isSettingsOpen" x-cloak @click.self="closeSettings">
-  <div class="settings-modal">
-    <h2>Settings</h2>
-
-    <label>Theme
-      <select x-model="settings.theme" @change="saveSettings">
-        <option value="auto">Auto</option>
-        <option value="light">Light</option>
-        <option value="dark">Dark</option>
-      </select>
-    </label>
-
-    <label>Primary color
-      <input type="color" x-model="settings.primaryColor" @input="saveSettings" />
-    </label>
-
-    <label>Font size
-      <select x-model="settings.fontSize" @change="saveSettings">
-        <option value="14px">Small</option>
-        <option value="16px">Default</option>
-        <option value="18px">Large</option>
-        <option value="20px">Extra large</option>
-      </select>
-    </label>
-
-    <div class="settings-row">
-      <button class="ctrl-btn" @click="exportSqlite">Export SQLite</button>
-      <label class="ctrl-btn import-btn">
-        Import SQLite
-        <input type="file" accept=".sqlite,.db,.sqlite3,application/octet-stream" @change="importSqlite($event)">
-      </label>
-    </div>
-
-    <button class="ctrl-btn" @click="closeSettings">Close</button>
+    </section>
   </div>
-</div>
 
-<div class="toast-stack">
-  <template x-for="toast in toasts" :key="toast.id">
-    <div class="toast" :class="toast.type" x-text="toast.text"></div>
-  </template>
-</div>
+  <div class="settings-overlay" x-show="isSettingsOpen" x-cloak @click.self="closeSettings">
+    <div class="settings-modal">
+      <h2>Settings</h2>
 
-<script>
-(function loadVendorScripts() {
-  const load = (src, fallback) => new Promise((resolve, reject) => {
-    const el = document.createElement('script');
-    el.src = src;
-    el.onload = resolve;
-    el.onerror = () => {
-      if (!fallback) return reject(new Error(`Failed to load ${src}`));
-      const alt = document.createElement('script');
-      alt.src = fallback;
-      alt.onload = resolve;
-      alt.onerror = () => reject(new Error(`Failed to load ${src} and fallback`));
-      document.head.appendChild(alt);
-    };
-    document.head.appendChild(el);
-  });
+      <label>Theme
+        <select x-model="settings.theme" @change="saveSettings">
+          <option value="auto">Auto</option>
+          <option value="light">Light</option>
+          <option value="dark">Dark</option>
+        </select>
+      </label>
 
-  Promise.all([
-    load('/vendor/onnxruntime-web/ort.min.js', 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/ort.min.js'),
-    load('/vendor/vad-web/bundle.min.js', 'https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.29/dist/bundle.min.js'),
-  ]).catch((err) => console.warn(err.message));
-})();
-</script>
-<!-- VITE_JS -->
+      <label>Primary color
+        <input type="color" x-model="settings.primaryColor" @input="saveSettings">
+      </label>
+
+      <label>Font size
+        <select x-model="settings.fontSize" @change="saveSettings">
+          <option value="14px">Small</option>
+          <option value="16px">Default</option>
+          <option value="18px">Large</option>
+          <option value="20px">Extra large</option>
+        </select>
+      </label>
+
+      <div class="settings-row">
+        <button class="ctrl-btn" @click="exportSqlite">Export SQLite</button>
+        <label class="ctrl-btn import-btn">
+          Import SQLite
+          <input type="file" accept=".sqlite,.db,.sqlite3,application/octet-stream" @change="importSqlite($event)">
+        </label>
+      </div>
+
+      <button class="ctrl-btn" @click="closeSettings">Close</button>
+    </div>
+  </div>
+
+  <div class="toast-stack">
+    <template x-for="toast in toasts" :key="toast.id">
+      <div class="toast" :class="toast.type" x-text="toast.text"></div>
+    </template>
+  </div>
+
+  <!-- VITE_JS -->
 </body>
 </html>
