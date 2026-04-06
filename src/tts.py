@@ -24,7 +24,7 @@ class TTSBackend:
 class MLXBackend(TTSBackend):
     """mlx-audio backend (Apple Silicon GPU via MLX)."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         from mlx_audio.tts.generate import load_model
 
         self._model = load_model("mlx-community/Kokoro-82M-bf16")
@@ -40,7 +40,7 @@ class MLXBackend(TTSBackend):
 class ONNXBackend(TTSBackend):
     """kokoro-onnx backend (ONNX Runtime, CPU)."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         import kokoro_onnx
         from huggingface_hub import hf_hub_download
 
@@ -59,7 +59,7 @@ def load() -> TTSBackend:
     """Load the best available TTS backend for this platform."""
     if _is_apple_silicon() and not os.environ.get("KOKORO_ONNX"):
         try:
-            backend = MLXBackend()
+            backend: TTSBackend = MLXBackend()
             print(f"TTS: mlx-audio (Apple GPU, sample_rate={backend.sample_rate})")
             return backend
         except ImportError:
