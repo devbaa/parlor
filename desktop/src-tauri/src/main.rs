@@ -7,6 +7,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use std::time::Duration;
 
+use sysinfo::{Disks, System};
 use tauri::menu::{Menu, MenuItem, Submenu};
 use tauri::{AppHandle, Emitter, Listener, Manager, RunEvent, WebviewUrl, WebviewWindowEvent};
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
@@ -17,6 +18,17 @@ const BACKEND_RESET_DB_PATH: &str = "/api/db/reset";
 const BACKEND_SIDECAR_NAME: &str = "parlor-backend";
 const BACKEND_MAX_WAIT_SECS: u64 = 60;
 const BACKEND_START_RETRIES: usize = 6;
+const MIN_TOTAL_MEMORY_GB: f64 = 8.0;
+const MIN_AVAILABLE_MEMORY_GB: f64 = 2.0;
+const MIN_AVAILABLE_DISK_GB: f64 = 2.0;
+
+#[derive(Debug, Clone)]
+struct ResourceAssessment {
+    total_memory_gb: f64,
+    available_memory_gb: f64,
+    available_disk_gb: Option<f64>,
+    warnings: Vec<String>,
+}
 
 struct BackendState {
     child: Mutex<Option<CommandChild>>,
@@ -79,6 +91,93 @@ fn backend_base_url(port: u16) -> String {
     format!("http://127.0.0.1:{port}")
 }
 
+fn bytes_to_gb(value: u64) -> f64 {
+    value as f64 / (1024.0 * 1024.0 * 1024.0)
+}
+
+fn assess_resources(data_dir: &Path) -> ResourceAssessment {
+    let mut system = System::new_all();
+    system.refresh_memory();
+
+    let total_memory_gb = bytes_to_gb(system.total_memory());
+    let available_memory_gb = bytes_to_gb(system.available_memory());
+
+    let disks = Disks::new_with_refreshed_list();
+    let available_disk_gb = disks
+        .iter()
+        .filter(|disk| data_dir.starts_with(disk.mount_point()))
+        .map(|disk| bytes_to_gb(disk.available_space()))
+        .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+        .or_else(|| {
+            disks
+                .iter()
+                .map(|disk| bytes_to_gb(disk.available_space()))
+                .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+        });
+
+    let mut warnings = Vec::new();
+    if total_memory_gb < MIN_TOTAL_MEMORY_GB {
+        warnings.push(format!(
+            "Detected {:.1} GiB RAM. Recommended minimum is {:.0} GiB.",
+            total_memory_gb, MIN_TOTAL_MEMORY_GB
+        ));
+    }
+    if available_memory_gb < MIN_AVAILABLE_MEMORY_GB {
+        warnings.push(format!(
+            "Only {:.1} GiB RAM currently free. Recommended free memory is at least {:.0} GiB.",
+            available_memory_gb, MIN_AVAILABLE_MEMORY_GB
+        ));
+    }
+    match available_disk_gb {
+        Some(available) if available < MIN_AVAILABLE_DISK_GB => warnings.push(format!(
+            "Only {:.1} GiB disk space is available. Keep at least {:.0} GiB free.",
+            available, MIN_AVAILABLE_DISK_GB
+        )),
+        None => warnings.push(
+            "Unable to determine free disk space; startup may fail if storage is low.".to_string(),
+        ),
+        _ => {}
+    }
+
+    ResourceAssessment {
+        total_memory_gb,
+        available_memory_gb,
+        available_disk_gb,
+        warnings,
+    }
+}
+
+fn show_preflight_notice(app: &AppHandle, state: &BackendState) {
+    let assessment = assess_resources(&state.data_dir);
+    if assessment.warnings.is_empty() {
+        return;
+    }
+
+    let disk_line = match assessment.available_disk_gb {
+        Some(gb) => format!("Free disk (data volume): {:.1} GiB", gb),
+        None => "Free disk (data volume): unknown".to_string(),
+    };
+    let mut lines = vec![
+        "Parlor detected limited local resources before startup.".to_string(),
+        format!("Total RAM: {:.1} GiB", assessment.total_memory_gb),
+        format!("Free RAM: {:.1} GiB", assessment.available_memory_gb),
+        disk_line,
+        "".to_string(),
+        "What this means: startup can be slower, downloads may fail, and local inference may crash."
+            .to_string(),
+        "".to_string(),
+        "Warnings:".to_string(),
+    ];
+    lines.extend(assessment.warnings.into_iter().map(|w| format!("• {w}")));
+
+    app.dialog()
+        .message(lines.join("\n"))
+        .title("Parlor resource warning")
+        .kind(MessageDialogKind::Warning)
+        .buttons(MessageDialogButtons::Ok)
+        .show(|_| {});
+}
+
 fn open_path_in_file_manager(path: &Path) -> Result<(), String> {
     #[cfg(target_os = "windows")]
     let mut cmd = {
@@ -104,6 +203,21 @@ fn open_path_in_file_manager(path: &Path) -> Result<(), String> {
     cmd.spawn()
         .map_err(|err| format!("failed to open {}: {err}", path.display()))?;
     Ok(())
+}
+
+fn enrich_backend_error(error: String) -> String {
+    let lower = error.to_lowercase();
+    if lower.contains("sidecar") && (lower.contains("not found") || lower.contains("missing")) {
+        format!(
+            "{error}\n\nThe desktop backend sidecar is missing. Rebuild/reinstall the desktop app and ensure prepackage ran so the sidecar binary is bundled."
+        )
+    } else if lower.contains("permission denied") {
+        format!(
+            "{error}\n\nParlor could not execute the backend. Check antivirus/quarantine settings and OS execution permissions."
+        )
+    } else {
+        error
+    }
 }
 
 fn stop_backend(state: &BackendState) {
@@ -163,7 +277,7 @@ fn spawn_backend_process(app: &AppHandle, port: u16) -> Result<(), String> {
     let state = app.state::<BackendState>();
 
     let mut command = tauri_plugin_shell::process::Command::new_sidecar(BACKEND_SIDECAR_NAME)
-        .map_err(|err| format!("sidecar init failed: {err}"))?;
+        .map_err(|err| enrich_backend_error(format!("sidecar init failed: {err}")))?;
 
     command = command
         .env("PORT", port.to_string())
@@ -172,7 +286,7 @@ fn spawn_backend_process(app: &AppHandle, port: u16) -> Result<(), String> {
 
     let (mut rx, child) = command
         .spawn()
-        .map_err(|err| format!("backend spawn failed: {err}"))?;
+        .map_err(|err| enrich_backend_error(format!("backend spawn failed: {err}")))?;
 
     {
         let mut guard = state.child.lock().expect("backend child mutex poisoned");
@@ -392,6 +506,10 @@ fn main() {
             let app_handle = app.handle().clone();
             let backend_state = BackendState::new(&app_handle)?;
             app.manage(backend_state);
+            {
+                let state = app_handle.state::<BackendState>();
+                show_preflight_notice(&app_handle, &state);
+            }
 
             let menu = build_app_menu(&app_handle)?;
             app.set_menu(menu)?;
