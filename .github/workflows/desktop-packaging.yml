@@ -1,0 +1,25 @@
+name: Desktop Packaging Preflight
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  manifest-preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install frontend dependencies
+        run: npm --prefix frontend install
+
+      - name: Build frontend
+        run: npm run build:frontend
+
+      - name: Verify Vite manifest exists before packaging
+        run: npm run check:manifest
