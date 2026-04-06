@@ -33,8 +33,9 @@ HF_FILENAME = "gemma-4-E2B-it.litertlm"
 DB_PATH = Path(__file__).parent / "parlor.db"
 REPO_ROOT = Path(__file__).resolve().parent.parent
 PUBLIC_DIR = REPO_ROOT / "public"
-DIST_DIR = PUBLIC_DIR / "dist"
-MANIFEST_PATH = DIST_DIR / "manifest.json"
+ASSETS_DIR = PUBLIC_DIR / "assets"
+VENDOR_DIR = PUBLIC_DIR / "vendor"
+MANIFEST_PATH = PUBLIC_DIR / ".vite" / "manifest.json"
 INDEX_TEMPLATE_PATH = PUBLIC_DIR / "index.html"
 
 logger = logging.getLogger(__name__)
@@ -87,7 +88,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(lifespan=lifespan)
-app.mount("/dist", StaticFiles(directory=DIST_DIR, check_dir=False), name="dist")
+app.mount("/assets", StaticFiles(directory=ASSETS_DIR, check_dir=False), name="assets")
+app.mount("/vendor", StaticFiles(directory=VENDOR_DIR, check_dir=False), name="vendor")
 
 
 class ThreadPayload(BaseModel):
@@ -108,7 +110,7 @@ def split_sentences(text: str) -> list[str]:
 
 
 def _subresource_integrity_for(asset_relative_path: str) -> str | None:
-    asset_path = DIST_DIR / asset_relative_path
+    asset_path = PUBLIC_DIR / asset_relative_path
     if not asset_path.exists():
         return None
     digest = hashlib.sha384(asset_path.read_bytes()).digest()
@@ -119,8 +121,8 @@ def _asset_tag_with_sri(asset_relative_path: str, *, kind: str) -> str:
     integrity = _subresource_integrity_for(asset_relative_path)
     integrity_attr = f' integrity="{integrity}" crossorigin="anonymous"' if integrity else ""
     if kind == "css":
-        return f'<link rel="stylesheet" href="/dist/{asset_relative_path}"{integrity_attr}>'
-    return f'<script type="module" src="/dist/{asset_relative_path}"{integrity_attr}></script>'
+        return f'<link rel="stylesheet" href="/{asset_relative_path}"{integrity_attr}>'
+    return f'<script type="module" src="/{asset_relative_path}"{integrity_attr}></script>'
 
 
 def vite_asset_tags() -> tuple[str, str]:

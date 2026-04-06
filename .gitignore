@@ -23,4 +23,6 @@ default.profraw
 
 # Frontend
 frontend/node_modules/
-public/dist/
+public/assets/
+public/.vite/
+public/vendor/
