@@ -1,3 +1,11 @@
+const SETTINGS_KEY = 'parlor-settings-v1';
+
+const DEFAULT_SETTINGS = {
+  theme: 'auto',
+  primaryColor: '#4ade80',
+  fontSize: '16px',
+};
+
 export function parlorApp() {
   return {
     threads: [],
@@ -25,7 +33,6 @@ export function parlorApp() {
     streamSampleRate: 24000,
     streamNextTime: 0,
     streamSources: [],
-    streamTtsTime: null,
 
     analyser: null,
     micSource: null,
@@ -36,6 +43,12 @@ export function parlorApp() {
     waveformRAF: null,
     ambientPhase: 0,
 
+    isSettingsOpen: false,
+    settings: { ...DEFAULT_SETTINGS },
+    resolvedTheme: 'dark',
+    toasts: [],
+    browserWarnings: [],
+
     get activeThreadTitle() {
       const t = this.threads.find(thread => thread.id === this.activeThreadId);
       return t ? (t.title || 'Untitled thread') : 'No thread selected';
@@ -44,6 +57,73 @@ export function parlorApp() {
     formatTime(iso) {
       if (!iso) return '';
       return new Date(iso).toLocaleString();
+    },
+
+    notify(text, type = 'info', timeout = 3500) {
+      const toast = { id: crypto.randomUUID(), text, type };
+      this.toasts.push(toast);
+      setTimeout(() => {
+        this.toasts = this.toasts.filter(t => t.id !== toast.id);
+      }, timeout);
+    },
+
+    loadSettings() {
+      try {
+        const parsed = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
+        this.settings = { ...DEFAULT_SETTINGS, ...parsed };
+      } catch {
+        this.settings = { ...DEFAULT_SETTINGS };
+      }
+      this.applySettings();
+    },
+
+    saveSettings() {
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(this.settings));
+      this.applySettings();
+      this.notify('Settings updated.', 'success');
+    },
+
+    applySettings() {
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      this.resolvedTheme = this.settings.theme === 'auto'
+        ? (prefersDark ? 'dark' : 'light')
+        : this.settings.theme;
+
+      const root = document.documentElement;
+      root.style.setProperty('--font-size-base', this.settings.fontSize);
+      root.style.setProperty('--c-primary', this.settings.primaryColor);
+      root.style.setProperty('--c-listen', this.settings.primaryColor);
+      root.style.setProperty('--c-listen-dim', `${this.hexToRgba(this.settings.primaryColor, 0.14)}`);
+    },
+
+    hexToRgba(hex, alpha = 1) {
+      const h = hex.replace('#', '');
+      const bigint = Number.parseInt(h.length === 3 ? h.split('').map(c => c + c).join('') : h, 16);
+      const r = (bigint >> 16) & 255;
+      const g = (bigint >> 8) & 255;
+      const b = bigint & 255;
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    },
+
+    openSettings() {
+      this.isSettingsOpen = true;
+    },
+
+    closeSettings() {
+      this.isSettingsOpen = false;
+    },
+
+    checkBrowserSupport() {
+      const checks = [
+        ['MediaDevices.getUserMedia', !!navigator.mediaDevices?.getUserMedia],
+        ['WebSocket', 'WebSocket' in window],
+        ['AudioContext', 'AudioContext' in window || 'webkitAudioContext' in window],
+        ['crypto.randomUUID', !!crypto?.randomUUID],
+      ];
+      this.browserWarnings = checks.filter(([, ok]) => !ok).map(([name]) => name);
+      if (this.browserWarnings.length) {
+        this.notify(`Some features may fail: ${this.browserWarnings.join(', ')}`, 'warning', 8000);
+      }
     },
 
     async init() {
@@ -56,6 +136,9 @@ export function parlorApp() {
       this.waveformCanvas = document.getElementById('waveform');
       this.waveformCtx = this.waveformCanvas.getContext('2d');
 
+      this.loadSettings();
+      this.checkBrowserSupport();
+
       this.initWaveformCanvas();
       window.addEventListener('resize', () => this.initWaveformCanvas());
 
@@ -63,20 +146,7 @@ export function parlorApp() {
       await this.loadThreads();
       this.connect();
 
-      this.myvad = await vad.MicVAD.new({
-        getStream: async () => new MediaStream(this.mediaStream.getAudioTracks()),
-        positiveSpeechThreshold: 0.5,
-        negativeSpeechThreshold: 0.25,
-        redemptionMs: 600,
-        minSpeechMs: 300,
-        preSpeechPadMs: 300,
-        onSpeechStart: () => this.handleSpeechStart(),
-        onSpeechEnd: (audio) => this.handleSpeechEnd(audio),
-        onVADMisfire: () => console.log('VAD misfire (too short)'),
-        onnxWASMBasePath: 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/',
-        baseAssetPath: 'https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.29/dist/',
-      });
-      this.myvad.start();
+      await this.initVad();
 
       const initAudio = () => {
         this.ensureAudioCtx();
@@ -92,10 +162,35 @@ export function parlorApp() {
       this.drawWaveform();
     },
 
+    async initVad() {
+      if (!window.vad?.MicVAD) {
+        this.notify('Voice activity detection failed to load.', 'error', 7000);
+        return;
+      }
+      try {
+        this.myvad = await vad.MicVAD.new({
+          getStream: async () => new MediaStream(this.mediaStream.getAudioTracks()),
+          positiveSpeechThreshold: 0.5,
+          negativeSpeechThreshold: 0.25,
+          redemptionMs: 600,
+          minSpeechMs: 300,
+          preSpeechPadMs: 300,
+          onSpeechStart: () => this.handleSpeechStart(),
+          onSpeechEnd: (audio) => this.handleSpeechEnd(audio),
+          onVADMisfire: () => console.log('VAD misfire (too short)'),
+          onnxWASMBasePath: '/vendor/onnxruntime-web/',
+          baseAssetPath: '/vendor/vad-web/',
+        });
+        this.myvad.start();
+      } catch (err) {
+        this.notify(`Failed to initialize VAD: ${err.message}`, 'error', 7000);
+      }
+    },
+
     async api(path, options = {}) {
       const res = await fetch(path, {
         headers: {
-          'Content-Type': 'application/json',
+          ...(options.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
           ...(this.csrfToken ? { 'X-CSRF-Token': this.csrfToken } : {}),
           ...(options.headers || {}),
         },
@@ -106,6 +201,41 @@ export function parlorApp() {
       return res.json();
     },
 
+    async exportSqlite() {
+      try {
+        const res = await fetch('/api/db/export');
+        if (!res.ok) throw new Error(await res.text());
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        const stamp = new Date().toISOString().replaceAll(':', '-').replace('T', '_').slice(0, 19);
+        a.href = url;
+        a.download = `parlor-export-${stamp}.sqlite`;
+        a.click();
+        URL.revokeObjectURL(url);
+        this.notify('SQLite exported successfully.', 'success');
+      } catch (err) {
+        this.notify(`Export failed: ${err.message}`, 'error');
+      }
+    },
+
+    async importSqlite(event) {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      try {
+        const formData = new FormData();
+        formData.append('db_file', file);
+        await this.api('/api/db/import', { method: 'POST', body: formData });
+        await this.loadThreads();
+        if (this.activeThreadId) await this.loadMessages(this.activeThreadId);
+        this.notify('SQLite import complete.', 'success');
+      } catch (err) {
+        this.notify(`Import failed: ${err.message}`, 'error');
+      } finally {
+        event.target.value = '';
+      }
+    },
+
     async loadThreads() {
       this.isLoadingThreads = true;
       try {
@@ -114,6 +244,8 @@ export function parlorApp() {
         if (!this.activeThreadId && this.threads.length) {
           await this.selectThread(this.threads[0].id);
         }
+      } catch (err) {
+        this.notify(`Failed to load threads: ${err.message}`, 'error');
       } finally {
         this.isLoadingThreads = false;
       }
@@ -134,6 +266,8 @@ export function parlorApp() {
           const el = document.getElementById('messages');
           if (el) el.scrollTop = el.scrollHeight;
         });
+      } catch (err) {
+        this.notify(`Failed to load messages: ${err.message}`, 'error');
       } finally {
         this.isLoadingMessages = false;
       }
@@ -153,10 +287,14 @@ export function parlorApp() {
     },
 
     async createThread() {
-      const data = await this.api('/api/threads', { method: 'POST', body: JSON.stringify({}) });
-      const thread = data.thread;
-      this.threads.unshift(thread);
-      await this.selectThread(thread.id);
+      try {
+        const data = await this.api('/api/threads', { method: 'POST', body: JSON.stringify({}) });
+        const thread = data.thread;
+        this.threads.unshift(thread);
+        await this.selectThread(thread.id);
+      } catch (err) {
+        this.notify(`Create thread failed: ${err.message}`, 'error');
+      }
     },
 
     startEditTitle(thread) {
@@ -174,12 +312,16 @@ export function parlorApp() {
     async saveEditTitle(threadId) {
       const title = this.editingTitle.trim();
       if (!title) return this.cancelEditTitle();
-      const data = await this.api(`/api/threads/${threadId}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ title }),
-      });
-      this.threads = this.threads.map(t => t.id === threadId ? data.thread : t);
-      this.cancelEditTitle();
+      try {
+        const data = await this.api(`/api/threads/${threadId}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ title }),
+        });
+        this.threads = this.threads.map(t => t.id === threadId ? data.thread : t);
+        this.cancelEditTitle();
+      } catch (err) {
+        this.notify(`Update title failed: ${err.message}`, 'error');
+      }
     },
 
     async deleteThread(threadId) {
@@ -191,9 +333,13 @@ export function parlorApp() {
         this.activeThreadId = null;
         this.messages = [];
       }
-      await this.api(`/api/threads/${threadId}`, { method: 'DELETE' });
-      if (fallback) {
-        await this.selectThread(fallback);
+      try {
+        await this.api(`/api/threads/${threadId}`, { method: 'DELETE' });
+        if (fallback) {
+          await this.selectThread(fallback);
+        }
+      } catch (err) {
+        this.notify(`Delete failed: ${err.message}`, 'error');
       }
     },
 
@@ -244,6 +390,7 @@ export function parlorApp() {
           const lastAssistant = [...this.messages].reverse().find(m => m.role === 'assistant');
           if (lastAssistant) lastAssistant.meta = `${lastAssistant.meta} · TTS ${msg.tts_time}s`;
         } else if (msg.type === 'error') {
+          this.notify(msg.detail || 'Thread error', 'error');
           this.addMessage('assistant', msg.detail || 'Thread error', '');
         }
       };
@@ -273,7 +420,10 @@ export function parlorApp() {
       this.mediaStream = new MediaStream();
       streams.forEach(r => { if (r.status === 'fulfilled') r.value.getTracks().forEach(t => this.mediaStream.addTrack(t)); });
       if (this.mediaStream.getVideoTracks().length) this.video.srcObject = this.mediaStream;
-      if (!this.mediaStream.getAudioTracks().length) this.cameraEnabled = false;
+      if (!this.mediaStream.getAudioTracks().length) {
+        this.cameraEnabled = false;
+        this.notify('No microphone track found.', 'warning');
+      }
     },
 
     toggleCamera() {
@@ -327,10 +477,10 @@ export function parlorApp() {
       const buf = new ArrayBuffer(44 + samples.length * 2);
       const v = new DataView(buf);
       const w = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
-      w(0,'RIFF'); v.setUint32(4, 36 + samples.length * 2, true); w(8,'WAVE'); w(12,'fmt ');
+      w(0, 'RIFF'); v.setUint32(4, 36 + samples.length * 2, true); w(8, 'WAVE'); w(12, 'fmt ');
       v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
       v.setUint32(24, 16000, true); v.setUint32(28, 32000, true); v.setUint16(32, 2, true);
-      v.setUint16(34, 16, true); w(36,'data'); v.setUint32(40, samples.length * 2, true);
+      v.setUint16(34, 16, true); w(36, 'data'); v.setUint32(40, samples.length * 2, true);
       for (let i = 0; i < samples.length; i++) {
         const s = Math.max(-1, Math.min(1, samples[i]));
         v.setInt16(44 + i * 2, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
@@ -351,7 +501,7 @@ export function parlorApp() {
 
     ensureAudioCtx() {
       if (!this.audioCtx) {
-        this.audioCtx = new AudioContext();
+        this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         this.analyser = this.audioCtx.createAnalyser();
         this.analyser.fftSize = 256;
         this.analyser.smoothingTimeConstant = 0.75;
@@ -420,7 +570,7 @@ export function parlorApp() {
     },
 
     getStateColor() {
-      const colors = { listening: '#4ade80', processing: '#f59e0b', speaking: '#818cf8', loading: '#3a3d46' };
+      const colors = { listening: this.settings.primaryColor, processing: '#f59e0b', speaking: '#818cf8', loading: '#3a3d46' };
       return colors[this.state] || colors.loading;
     },
 
@@ -493,7 +643,7 @@ export function parlorApp() {
       }
 
       const stateVars = {
-        listening: ['#4ade80', 'rgba(74,222,128,0.12)'],
+        listening: [this.settings.primaryColor, this.hexToRgba(this.settings.primaryColor, 0.12)],
         processing: ['#f59e0b', 'rgba(245,158,11,0.12)'],
         speaking: ['#818cf8', 'rgba(129,140,248,0.12)'],
         loading: ['#3a3d46', 'rgba(58,61,70,0.12)'],

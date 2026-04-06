@@ -7,6 +7,7 @@ import json
 import logging
 import os
 import re
+import shutil
 import tempfile
 import time
 import uuid
@@ -18,8 +19,8 @@ from typing import Any
 import numpy as np
 import uvicorn
 
-from fastapi import FastAPI, HTTPException, Request, Response, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse, PlainTextResponse
+from fastapi import FastAPI, File, HTTPException, Request, Response, UploadFile, WebSocket, WebSocketDisconnect
+from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -145,8 +146,8 @@ async def add_security_headers(request: Request, call_next: Any) -> Response:
     csp = (
         "default-src 'self'; "
         "script-src 'self' https://cdn.jsdelivr.net; "
-        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
-        "font-src 'self' https://fonts.gstatic.com; "
+        "style-src 'self' 'unsafe-inline'; "
+        "font-src 'self'; "
         "img-src 'self' data: blob:; "
         "media-src 'self' blob:; "
         "connect-src 'self' ws: wss: https://cdn.jsdelivr.net; "
@@ -239,6 +240,32 @@ def resolve_active_thread_id(message: dict[str, Any]) -> str:
     created = storage.create_thread(thread_id=str(uuid.uuid4()))
     return created["id"]
 
+
+
+
+@app.get("/api/db/export")
+async def export_database() -> FileResponse:
+    export_path = storage.export_database(DB_PATH)
+    stamp = time.strftime("%Y%m%d_%H%M%S", time.gmtime())
+    filename = f"parlor-export-{stamp}.sqlite"
+    return FileResponse(
+        path=export_path,
+        filename=filename,
+        media_type="application/octet-stream",
+    )
+
+
+@app.post("/api/db/import")
+async def import_database(db_file: UploadFile = File(...)) -> dict[str, bool]:
+    suffix = Path(db_file.filename or "import.sqlite").suffix or ".sqlite"
+    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+        shutil.copyfileobj(db_file.file, tmp)
+        tmp_path = Path(tmp.name)
+    try:
+        storage.import_database(tmp_path)
+    finally:
+        tmp_path.unlink(missing_ok=True)
+    return {"ok": True}
 
 @app.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket):

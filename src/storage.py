@@ -285,3 +285,26 @@ def list_messages(thread_id: str) -> list[dict[str, Any]]:
             (thread_id,),
         ).fetchall()
     return [dict(row) for row in rows]
+
+
+def export_database(db_path: str | Path) -> Path:
+    export_path = Path(db_path).with_name(f"parlor-export-{int(datetime.now(timezone.utc).timestamp())}.sqlite")
+    with _LOCK:
+        conn = _conn()
+        conn.commit()
+        with sqlite3.connect(export_path) as dst:
+            conn.backup(dst)
+    return export_path
+
+
+def import_database(source_path: str | Path) -> None:
+    source = Path(source_path)
+    with _LOCK:
+        conn = _conn()
+        with sqlite3.connect(str(source)) as src:
+            src.row_factory = sqlite3.Row
+            required_tables = {row['name'] for row in src.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+            if 'threads' not in required_tables or 'messages' not in required_tables:
+                raise ValueError('Invalid SQLite schema for import')
+            src.backup(conn)
+        conn.commit()
