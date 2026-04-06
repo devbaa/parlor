@@ -148,12 +148,12 @@ async def add_security_headers(request: Request, call_next: Any) -> Response:
     response: Response = await call_next(request)
     csp = (
         "default-src 'self'; "
-        "script-src 'self' https://cdn.jsdelivr.net; "
+        "script-src 'self'; "
         "style-src 'self' 'unsafe-inline'; "
         "font-src 'self'; "
         "img-src 'self' data: blob:; "
         "media-src 'self' blob:; "
-        "connect-src 'self' ws: wss: https://cdn.jsdelivr.net; "
+        "connect-src 'self' ws: wss:; "
         "frame-ancestors 'none'; "
         "base-uri 'self'; "
         "object-src 'none';"
