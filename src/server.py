@@ -25,7 +25,6 @@ from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-import litert_lm
 import storage
 import tts
 
@@ -124,15 +123,45 @@ engine: Any = None
 tts_backend: tts.TTSBackend | None = None
 
 
+def _litert_runtime_error(platform_name: str, err: Exception | None = None) -> RuntimeError:
+    detail = f"\nOriginal error: {err}" if err is not None else ""
+    return RuntimeError(
+        "Gemma inference backend (litert-lm) is unavailable on this runtime.\n"
+        f"Detected platform: {platform_name}.\n"
+        "Current status: litert-lm 0.10.1 publishes litert_lm_api wheels for macOS arm64 and Linux "
+        "(x86_64/aarch64), but not native Windows win32 wheels.\n"
+        "Fallback strategy for Windows users:\n"
+        "  - Run the Parlor backend in WSL2 Ubuntu or a Linux machine.\n"
+        "  - Access it from a browser on Windows via http://localhost:<port>.\n"
+        "  - If packaging a desktop app, bundle the backend for a supported Linux/macOS target.\n"
+        "Remediation: use macOS (Apple Silicon) or Linux for local packaged inference until native "
+        "Windows litert-lm support is available."
+        f"{detail}"
+    )
+
+
 def load_models() -> None:
     global engine, tts_backend
+    try:
+        import litert_lm
+    except ImportError as err:
+        raise _litert_runtime_error(sys.platform, err) from err
+
+    if sys.platform == "win32":
+        raise _litert_runtime_error(sys.platform)
+
     print(f"Loading Gemma 4 E2B from {MODEL_PATH}...")
-    engine = litert_lm.Engine(
-        MODEL_PATH,
-        backend=litert_lm.Backend.GPU,
-        vision_backend=litert_lm.Backend.GPU,
-        audio_backend=litert_lm.Backend.CPU,
-    )
+    try:
+        engine = litert_lm.Engine(
+            MODEL_PATH,
+            backend=litert_lm.Backend.GPU,
+            vision_backend=litert_lm.Backend.GPU,
+            audio_backend=litert_lm.Backend.CPU,
+        )
+    except Exception as err:
+        if sys.platform == "win32":
+            raise _litert_runtime_error(sys.platform, err) from err
+        raise
     engine.__enter__()
     print("Engine loaded.")
 

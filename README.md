@@ -25,7 +25,7 @@ Browser (mic + camera)
     ▼
 FastAPI server
     ├── Gemma 4 E2B via LiteRT-LM (GPU)  →  understands speech + vision
-    └── Kokoro TTS (MLX on Mac, ONNX on Linux)  →  speaks back
+    └── Kokoro TTS (MLX on Mac, ONNX on Linux/Windows)  →  speaks back
     │
     │  WebSocket (streamed audio chunks)
     ▼
@@ -36,10 +36,21 @@ Browser (playback + transcript)
 - **Barge-in.** Interrupt the AI mid-sentence by speaking.
 - **Sentence-level TTS streaming.** Audio starts playing before the full response is generated.
 
+## Supported OS / hardware matrix
+
+| OS | CPU/Hardware | Inference (Gemma via LiteRT-LM) | TTS backend | Status |
+| --- | --- | --- | --- | --- |
+| macOS (Apple Silicon) | M-series (arm64) | ✅ GPU | ✅ `mlx-audio` (default), optional `kokoro-onnx` | **Supported** |
+| Linux (x86_64 / aarch64) | GPU strongly recommended | ✅ GPU/CPU via LiteRT-LM runtime | ✅ `kokoro-onnx` (ONNX Runtime CPU) | **Supported** |
+| Windows (`win32`) | x86_64 | ❌ Native LiteRT-LM runtime wheel unavailable | ✅ `kokoro-onnx` (ONNX Runtime CPU) | **Partial** (TTS only) |
+
+> Windows note: as of LiteRT-LM `0.10.1`, `litert_lm_api` wheels are published for macOS arm64 and Linux (x86_64/aarch64), but not native Windows. For Windows users, run the backend in WSL2/Linux and access from your Windows browser.
+
 ## Requirements
 
 - Python 3.12+
 - macOS with Apple Silicon, or Linux with a supported GPU
+- Windows is currently supported for TTS dependencies only; full local inference requires WSL2/Linux due to LiteRT-LM packaging limits
 - ~3 GB free RAM for the model
 
 ## Quick start
@@ -143,7 +154,7 @@ public/
 
 src/
 ├── server.py             # FastAPI WebSocket server + static dist serving
-├── tts.py                # Platform-aware TTS (MLX on Mac, ONNX on Linux)
+├── tts.py                # Platform-aware TTS (MLX on Mac, ONNX on Linux/Windows)
 ├── pyproject.toml        # Python dependencies
 └── benchmarks/
     ├── bench.py          # End-to-end WebSocket benchmark

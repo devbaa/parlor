@@ -5,12 +5,13 @@ description = "On-device, real-time multimodal AI — have natural voice + visio
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "fastapi>=0.135.3",
-    "kokoro-onnx>=0.5.0; sys_platform == 'linux'",
-    "litert-lm>=0.10.1",
+    "kokoro-onnx>=0.5.0; sys_platform == 'linux' or sys_platform == 'win32'",
+    "litert-lm>=0.10.1; sys_platform == 'darwin' or sys_platform == 'linux'",
     "misaki[en]>=0.9.4; sys_platform == 'darwin'",
     "mlx-audio>=0.4.2; sys_platform == 'darwin'",
     "num2words>=0.5.14; sys_platform == 'darwin'",
     "numpy>=2.4.4",
+    "onnxruntime>=1.24.4; sys_platform == 'win32'",
     "pillow>=11.0.0",
     "soundfile>=0.13.1",
     "uvicorn[standard]>=0.43.0",
