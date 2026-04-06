@@ -2,6 +2,7 @@
 
 import asyncio
 import base64
+import hashlib
 import json
 import logging
 import os
@@ -9,15 +10,16 @@ import re
 import tempfile
 import time
 import uuid
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 import uvicorn
-from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse
+from fastapi import FastAPI, HTTPException, Request, Response, WebSocket, WebSocketDisconnect
+from fastapi.responses import HTMLResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -55,11 +57,11 @@ SYSTEM_PROMPT = (
 
 SENTENCE_SPLIT_RE = re.compile(r'(?<=[.!?])\s+')
 
-engine = None
-tts_backend = None
+engine: Any = None
+tts_backend: tts.TTSBackend | None = None
 
 
-def load_models():
+def load_models() -> None:
     global engine, tts_backend
     print(f"Loading Gemma 4 E2B from {MODEL_PATH}...")
     engine = litert_lm.Engine(
@@ -75,7 +77,8 @@ def load_models():
 
 
 @asynccontextmanager
-async def lifespan(app):
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    del app
     storage.init_db(DB_PATH)
     await asyncio.get_event_loop().run_in_executor(None, load_models)
     yield
@@ -102,6 +105,22 @@ def split_sentences(text: str) -> list[str]:
     return [s.strip() for s in parts if s.strip()]
 
 
+def _subresource_integrity_for(asset_relative_path: str) -> str | None:
+    asset_path = DIST_DIR / asset_relative_path
+    if not asset_path.exists():
+        return None
+    digest = hashlib.sha384(asset_path.read_bytes()).digest()
+    return f"sha384-{base64.b64encode(digest).decode('ascii')}"
+
+
+def _asset_tag_with_sri(asset_relative_path: str, *, kind: str) -> str:
+    integrity = _subresource_integrity_for(asset_relative_path)
+    integrity_attr = f' integrity="{integrity}" crossorigin="anonymous"' if integrity else ""
+    if kind == "css":
+        return f'<link rel="stylesheet" href="/dist/{asset_relative_path}"{integrity_attr}>'
+    return f'<script type="module" src="/dist/{asset_relative_path}"{integrity_attr}></script>'
+
+
 def vite_asset_tags() -> tuple[str, str]:
     """Return css and js tags for the Vite-built entrypoint."""
     if not MANIFEST_PATH.exists():
@@ -115,26 +134,72 @@ def vite_asset_tags() -> tuple[str, str]:
         return "", ""
 
     css_files = entry.get("css", [])
-    css_tags = "\n".join(f'<link rel="stylesheet" href="/dist/{css_file}">' for css_file in css_files)
-    js_tag = f'<script type="module" src="/dist/{entry["file"]}"></script>'
+    css_tags = "\n".join(_asset_tag_with_sri(css_file, kind="css") for css_file in css_files)
+    js_tag = _asset_tag_with_sri(entry["file"], kind="js")
     return css_tags, js_tag
 
 
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next: Any) -> Response:
+    response: Response = await call_next(request)
+    csp = (
+        "default-src 'self'; "
+        "script-src 'self' https://cdn.jsdelivr.net; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "font-src 'self' https://fonts.gstatic.com; "
+        "img-src 'self' data: blob:; "
+        "media-src 'self' blob:; "
+        "connect-src 'self' ws: wss: https://cdn.jsdelivr.net; "
+        "frame-ancestors 'none'; "
+        "base-uri 'self'; "
+        "object-src 'none';"
+    )
+    response.headers["Content-Security-Policy"] = csp
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["Permissions-Policy"] = "camera=(self), microphone=(self), geolocation=()"
+    return response
+
+
+@app.middleware("http")
+async def csrf_protect(request: Request, call_next: Any) -> Response:
+    if request.method in {"POST", "PUT", "PATCH", "DELETE"} and request.url.path.startswith("/api/"):
+        cookie_token = request.cookies.get("csrf_token")
+        header_token = request.headers.get("x-csrf-token")
+        if not cookie_token or not header_token or header_token != cookie_token:
+            return PlainTextResponse("CSRF validation failed", status_code=403)
+    return await call_next(request)
+
+
 @app.get("/")
-async def root():
+async def root() -> HTMLResponse:
     template = INDEX_TEMPLATE_PATH.read_text()
     css_tags, js_tag = vite_asset_tags()
-    html = template.replace("<!-- VITE_CSS -->", css_tags).replace("<!-- VITE_JS -->", js_tag)
-    return HTMLResponse(content=html)
+    csrf_token = base64.urlsafe_b64encode(os.urandom(32)).decode("ascii")
+    html = (
+        template.replace("<!-- VITE_CSS -->", css_tags)
+        .replace("<!-- VITE_JS -->", js_tag)
+        .replace("<!-- CSRF_META -->", f'<meta name="csrf-token" content="{csrf_token}">')
+    )
+    response = HTMLResponse(content=html)
+    response.set_cookie(
+        key="csrf_token",
+        value=csrf_token,
+        secure=False,
+        httponly=False,
+        samesite="strict",
+    )
+    return response
 
 
 @app.get("/api/threads")
-async def get_threads():
+async def get_threads() -> dict[str, list[dict[str, Any]]]:
     return {"threads": storage.list_threads()}
 
 
 @app.post("/api/threads")
-async def create_thread(payload: ThreadPayload | None = None):
+async def create_thread(payload: ThreadPayload | None = None) -> dict[str, dict[str, Any]]:
     thread = storage.create_thread(
         thread_id=str(uuid.uuid4()),
         title=payload.title if payload else None,
@@ -143,7 +208,7 @@ async def create_thread(payload: ThreadPayload | None = None):
 
 
 @app.patch("/api/threads/{thread_id}")
-async def update_thread(thread_id: str, payload: ThreadPayload | None = None):
+async def update_thread(thread_id: str, payload: ThreadPayload | None = None) -> dict[str, dict[str, Any]]:
     thread = storage.update_thread_title(thread_id, payload.title if payload else None)
     if thread is None:
         raise HTTPException(status_code=404, detail="Thread not found")
@@ -151,14 +216,14 @@ async def update_thread(thread_id: str, payload: ThreadPayload | None = None):
 
 
 @app.delete("/api/threads/{thread_id}")
-async def delete_thread(thread_id: str):
+async def delete_thread(thread_id: str) -> dict[str, bool]:
     if not storage.soft_delete_thread(thread_id):
         raise HTTPException(status_code=404, detail="Thread not found")
     return {"ok": True}
 
 
 @app.get("/api/threads/{thread_id}/messages")
-async def get_thread_messages(thread_id: str):
+async def get_thread_messages(thread_id: str) -> dict[str, Any]:
     if not storage.thread_exists(thread_id):
         raise HTTPException(status_code=404, detail="Thread not found")
     return {"thread_id": thread_id, "messages": storage.list_messages(thread_id)}
@@ -180,7 +245,11 @@ async def websocket_endpoint(ws: WebSocket):
     await ws.accept()
 
     # Per-connection tool state captured via closure
-    tool_result = {}
+    if tts_backend is None:
+        await ws.close(code=1011)
+        return
+
+    tool_result: dict[str, str] = {}
 
     def respond_to_user(transcription: str, response: str) -> str:
         """Respond to the user's voice message.
@@ -200,7 +269,7 @@ async def websocket_endpoint(ws: WebSocket):
     conversation.__enter__()
 
     interrupted = asyncio.Event()
-    msg_queue = asyncio.Queue()
+    msg_queue: asyncio.Queue[dict[str, Any] | None] = asyncio.Queue()
 
     async def receiver():
         """Receive messages from WebSocket and route them."""
@@ -262,7 +331,7 @@ async def websocket_endpoint(ws: WebSocket):
                 # LLM inference
                 t0 = time.time()
                 tool_result.clear()
-                response = await asyncio.get_event_loop().run_in_executor(
+                response: dict[str, Any] = await asyncio.get_event_loop().run_in_executor(
                     None, lambda: conversation.send_message({"role": "user", "content": content})
                 )
                 llm_time = time.time() - t0
@@ -349,9 +418,10 @@ async def websocket_endpoint(ws: WebSocket):
                         break
 
                     # Generate audio for this sentence
-                    pcm = await asyncio.get_event_loop().run_in_executor(
-                        None, lambda s=sentence: tts_backend.generate(s)
-                    )
+                    def generate_sentence(s: str) -> np.ndarray:
+                        return tts_backend.generate(s)
+
+                    pcm = await asyncio.get_event_loop().run_in_executor(None, generate_sentence, sentence)
 
                     if interrupted.is_set():
                         break

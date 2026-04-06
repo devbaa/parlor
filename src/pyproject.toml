@@ -16,3 +16,14 @@ dependencies = [
     "uvicorn[standard]>=0.43.0",
     "websockets>=16.0",
 ]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+pretty = true
+show_error_codes = true
+warn_unreachable = true
+
+[[tool.mypy.overrides]]
+module = ["litert_lm", "kokoro_onnx", "mlx_audio.*"]
+ignore_missing_imports = true

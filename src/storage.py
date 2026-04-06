@@ -172,7 +172,10 @@ def create_thread(*, thread_id: str, title: str | None = None) -> dict[str, Any]
             (thread_id, normalized_title, ts, ts),
         )
         _conn().commit()
-    return get_thread(thread_id)
+    created = get_thread(thread_id)
+    if created is None:
+        raise RuntimeError("Thread creation failed unexpectedly")
+    return created
 
 
 def get_thread(thread_id: str, *, include_deleted: bool = False) -> dict[str, Any] | None:

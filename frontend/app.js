@@ -10,6 +10,7 @@ export function parlorApp() {
     isLoadingMessages: false,
     statusText: 'Disconnected',
     statusClass: 'disconnected',
+    csrfToken: null,
 
     ws: null,
     mediaStream: null,
@@ -46,6 +47,7 @@ export function parlorApp() {
     },
 
     async init() {
+      this.csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || null;
       this.video = document.getElementById('video');
       this.stateDot = document.getElementById('stateDot');
       this.stateText = document.getElementById('stateText');
@@ -92,7 +94,11 @@ export function parlorApp() {
 
     async api(path, options = {}) {
       const res = await fetch(path, {
-        headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(this.csrfToken ? { 'X-CSRF-Token': this.csrfToken } : {}),
+          ...(options.headers || {}),
+        },
         ...options,
       });
       if (!res.ok) throw new Error(await res.text());
@@ -192,7 +198,8 @@ export function parlorApp() {
     },
 
     connect() {
-      this.ws = new WebSocket(`ws://${location.host}/ws`);
+      const wsProtocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+      this.ws = new WebSocket(`${wsProtocol}://${location.host}/ws`);
       this.ws.onopen = () => {
         this.setStatus('connected', 'Connected');
         if (this.state !== 'loading') this.setState('listening');
