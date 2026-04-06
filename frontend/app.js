@@ -417,16 +417,11 @@ export function parlorApp() {
       const manualUrl = (window.PARLOR_WS_URL || '').trim();
       if (manualUrl) return manualUrl;
 
-      const protocolMap = {
-        'https:': 'wss:',
-        'http:': 'ws:',
-        'wss:': 'wss:',
-        'ws:': 'ws:',
-      };
-      const wsProtocol = protocolMap[window.location.protocol];
-      if (!wsProtocol) return null;
+      if (window.location.protocol !== 'https:' && window.location.protocol !== 'http:') {
+        return null;
+      }
 
-      return `${wsProtocol}//${window.location.host}/ws`;
+      return `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/ws`;
     },
 
     setStatus(cls, text) {
