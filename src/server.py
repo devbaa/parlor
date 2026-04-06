@@ -18,6 +18,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 import litert_lm
@@ -27,6 +28,10 @@ import tts
 HF_REPO = "litert-community/gemma-4-E2B-it-litert-lm"
 HF_FILENAME = "gemma-4-E2B-it.litertlm"
 DB_PATH = Path(__file__).parent / "parlor.db"
+PUBLIC_DIR = Path(__file__).parent / "public"
+DIST_DIR = PUBLIC_DIR / "dist"
+MANIFEST_PATH = DIST_DIR / "manifest.json"
+INDEX_TEMPLATE_PATH = Path(__file__).parent / "index.html"
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +82,7 @@ async def lifespan(app):
 
 
 app = FastAPI(lifespan=lifespan)
+app.mount("/dist", StaticFiles(directory=DIST_DIR, check_dir=False), name="dist")
 
 
 class ThreadPayload(BaseModel):
@@ -96,9 +102,30 @@ def split_sentences(text: str) -> list[str]:
     return [s.strip() for s in parts if s.strip()]
 
 
+def vite_asset_tags() -> tuple[str, str]:
+    """Return css and js tags for the Vite-built entrypoint."""
+    if not MANIFEST_PATH.exists():
+        return "", ""
+
+    manifest = json.loads(MANIFEST_PATH.read_text())
+    entry = manifest.get("frontend/main.js")
+    if entry is None:
+        entry = next((value for value in manifest.values() if value.get("isEntry")), None)
+    if entry is None:
+        return "", ""
+
+    css_files = entry.get("css", [])
+    css_tags = "\n".join(f'<link rel="stylesheet" href="/dist/{css_file}">' for css_file in css_files)
+    js_tag = f'<script type="module" src="/dist/{entry["file"]}"></script>'
+    return css_tags, js_tag
+
+
 @app.get("/")
 async def root():
-    return HTMLResponse(content=(Path(__file__).parent / "index.html").read_text())
+    template = INDEX_TEMPLATE_PATH.read_text()
+    css_tags, js_tag = vite_asset_tags()
+    html = template.replace("<!-- VITE_CSS -->", css_tags).replace("<!-- VITE_JS -->", js_tag)
+    return HTMLResponse(content=html)
 
 
 @app.get("/api/threads")
