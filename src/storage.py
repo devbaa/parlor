@@ -9,6 +9,9 @@ from pathlib import Path
 from typing import Any
 
 
+TITLE_MAX_LENGTH = 60
+
+
 _CONN: sqlite3.Connection | None = None
 _LOCK = threading.Lock()
 
@@ -23,6 +26,76 @@ def normalize_title(title: str | None) -> str | None:
     normalized = title.strip()
     return normalized or None
 
+
+
+
+def build_generated_title(text: str | None, *, max_length: int = TITLE_MAX_LENGTH) -> str | None:
+    if text is None:
+        return None
+
+    single_line = " ".join(text.splitlines())
+    normalized = " ".join(single_line.split()).strip()
+    if not normalized:
+        return None
+
+    if len(normalized) <= max_length:
+        return normalized
+
+    truncated = normalized[:max_length].rstrip()
+    return truncated or normalized[:max_length]
+
+
+def maybe_set_generated_title(
+    thread_id: str,
+    *,
+    transcription: str | None,
+    content: str | None,
+) -> dict[str, Any] | None:
+    candidate = build_generated_title(transcription) or build_generated_title(content)
+    if candidate is None:
+        return get_thread(thread_id)
+
+    ts = now_iso()
+    with _LOCK:
+        row = _conn().execute(
+            """
+            SELECT title
+            FROM threads
+            WHERE id = ? AND deleted_at IS NULL
+            """,
+            (thread_id,),
+        ).fetchone()
+        if row is None:
+            return None
+
+        if normalize_title(row["title"]) is not None:
+            return get_thread(thread_id)
+
+        user_count = _conn().execute(
+            """
+            SELECT COUNT(*) AS count
+            FROM messages
+            WHERE thread_id = ? AND role = 'user'
+            """,
+            (thread_id,),
+        ).fetchone()["count"]
+
+        if user_count != 1:
+            return get_thread(thread_id)
+
+        _conn().execute(
+            """
+            UPDATE threads
+            SET title = ?, updated_at = ?
+            WHERE id = ?
+              AND deleted_at IS NULL
+              AND (title IS NULL OR TRIM(title) = '')
+            """,
+            (candidate, ts, thread_id),
+        )
+        _conn().commit()
+
+    return get_thread(thread_id)
 
 def init_db(db_path: str | Path) -> None:
     """Initialize SQLite DB and create schema if it does not exist."""
