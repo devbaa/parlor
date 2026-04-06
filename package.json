@@ -1,0 +1,13 @@
+{
+  "name": "parlor-build",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "build:frontend": "npm --prefix frontend run build",
+    "build:backend": "./scripts/build-backend-sidecar.sh",
+    "check:manifest": "test -f public/.vite/manifest.json",
+    "prepackage": "npm run build:frontend && npm run check:manifest && npm run build:backend",
+    "tauri:build": "npm --prefix desktop run tauri build",
+    "build:desktop": "npm run prepackage && npm run tauri:build"
+  }
+}

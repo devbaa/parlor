@@ -85,6 +85,8 @@ Models are downloaded automatically on first run (~2.6 GB for Gemma 4 E2B, plus 
 
 The `desktop/` workspace is now the desktop entrypoint. Tauri launches a bundled backend sidecar (`parlor-backend`) on a dynamic localhost port, waits for `/api/health`, then opens the app window to that URL.
 
+For packaging we **keep Vite output in `public/`** (same artifacts used by FastAPI) and point Tauri at that folder (`desktop/src-tauri/tauri.conf.json` → `build.frontendDist = "../../public"`). This avoids a second frontend output location and ensures one canonical asset set for web + desktop.
+
 ```bash
 # from repo root
 cd desktop
@@ -92,7 +94,19 @@ npm install
 npm run dev
 ```
 
-To package the desktop app, provide a bundled backend executable named for Tauri sidecar conventions under `src/bin/parlor-backend-*` (for each target triple) so `tauri build` can include it.
+Desktop release build from repo root (enforced order):
+
+```bash
+npm run build:desktop
+```
+
+This runs:
+1. `npm run build:frontend` (Vite build to `public/`)
+2. `npm run check:manifest` (requires `public/.vite/manifest.json`)
+3. `npm run build:backend` (freeze Python backend to `src/bin/parlor-backend-<target>`)
+4. `npm run tauri:build` (package app)
+
+`tauri build` also runs the same `prepackage` step via `beforeBuildCommand`, so stale `public/assets` cannot slip into release artifacts.
 
 ## Frontend development and build
 

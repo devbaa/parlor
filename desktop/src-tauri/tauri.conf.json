@@ -5,8 +5,8 @@
   "identifier": "com.parlor.app",
   "build": {
     "beforeDevCommand": "",
-    "beforeBuildCommand": "",
-    "frontendDist": "../dist"
+    "beforeBuildCommand": "npm --prefix ../.. run prepackage",
+    "frontendDist": "../../public"
   },
   "app": {
     "windows": [
