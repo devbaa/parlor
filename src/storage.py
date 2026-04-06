@@ -308,3 +308,11 @@ def import_database(source_path: str | Path) -> None:
                 raise ValueError('Invalid SQLite schema for import')
             src.backup(conn)
         conn.commit()
+
+
+def reset_database() -> None:
+    with _LOCK:
+        conn = _conn()
+        conn.execute("DELETE FROM messages")
+        conn.execute("DELETE FROM threads")
+        conn.commit()

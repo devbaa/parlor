@@ -159,7 +159,39 @@
         </label>
       </div>
 
+      <div class="settings-row">
+        <button class="ctrl-btn" @click="openLogsFolder">Open Logs</button>
+        <button class="ctrl-btn" @click="openDataFolder">Open Data Folder</button>
+      </div>
+
+      <button class="ctrl-btn danger-btn" @click="resetLocalDb">Reset Local DB</button>
+
       <button class="ctrl-btn" @click="closeSettings">Close</button>
+    </div>
+  </div>
+
+  <div class="startup-overlay" x-show="isFirstRunModalOpen" x-cloak>
+    <div class="startup-modal">
+      <h2>Welcome to Parlor</h2>
+      <p>
+        On first run, Parlor downloads the Gemma 4 model (multiple GB) before it can answer.
+        Depending on your connection and disk speed, this can take roughly 5–20 minutes.
+      </p>
+      <p>
+        During download and model initialization, the app may look idle. This is expected.
+      </p>
+      <button class="ctrl-btn" @click="acknowledgeFirstRun">Got it</button>
+    </div>
+  </div>
+
+  <div class="startup-overlay" x-show="isBackendCrashModalOpen" x-cloak>
+    <div class="startup-modal">
+      <h2>Backend stopped</h2>
+      <p x-text="backendCrashReason"></p>
+      <div class="settings-row">
+        <button class="ctrl-btn" @click="restartBackend" :disabled="isRestartingBackend" x-text="isRestartingBackend ? 'Restarting…' : 'Restart backend'"></button>
+        <button class="ctrl-btn" @click="openLogsFolder">Open logs</button>
+      </div>
     </div>
   </div>
 
