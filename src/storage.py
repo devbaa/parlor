@@ -17,6 +17,13 @@ def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def normalize_title(title: str | None) -> str | None:
+    if title is None:
+        return None
+    normalized = title.strip()
+    return normalized or None
+
+
 def init_db(db_path: str | Path) -> None:
     """Initialize SQLite DB and create schema if it does not exist."""
     global _CONN
@@ -63,6 +70,7 @@ def _conn() -> sqlite3.Connection:
 
 
 def ensure_thread(thread_id: str, title: str | None = None) -> None:
+    normalized_title = normalize_title(title)
     ts = now_iso()
     with _LOCK:
         _conn().execute(
@@ -70,13 +78,79 @@ def ensure_thread(thread_id: str, title: str | None = None) -> None:
             INSERT OR IGNORE INTO threads(id, title, created_at, updated_at, deleted_at)
             VALUES (?, ?, ?, ?, NULL)
             """,
-            (thread_id, title, ts, ts),
+            (thread_id, normalized_title, ts, ts),
         )
         _conn().execute(
-            "UPDATE threads SET updated_at = ? WHERE id = ?",
+            "UPDATE threads SET updated_at = ? WHERE id = ? AND deleted_at IS NULL",
             (ts, thread_id),
         )
         _conn().commit()
+
+
+def create_thread(*, thread_id: str, title: str | None = None) -> dict[str, Any]:
+    normalized_title = normalize_title(title)
+    ts = now_iso()
+    with _LOCK:
+        _conn().execute(
+            """
+            INSERT INTO threads(id, title, created_at, updated_at, deleted_at)
+            VALUES (?, ?, ?, ?, NULL)
+            """,
+            (thread_id, normalized_title, ts, ts),
+        )
+        _conn().commit()
+    return get_thread(thread_id)
+
+
+def get_thread(thread_id: str, *, include_deleted: bool = False) -> dict[str, Any] | None:
+    query = """
+        SELECT id, title, created_at, updated_at, deleted_at
+        FROM threads
+        WHERE id = ?
+    """
+    params: tuple[Any, ...] = (thread_id,)
+    if not include_deleted:
+        query += " AND deleted_at IS NULL"
+    with _LOCK:
+        row = _conn().execute(query, params).fetchone()
+    return dict(row) if row else None
+
+
+def update_thread_title(thread_id: str, title: str | None) -> dict[str, Any] | None:
+    normalized_title = normalize_title(title)
+    if normalized_title is None:
+        return get_thread(thread_id)
+
+    ts = now_iso()
+    with _LOCK:
+        cursor = _conn().execute(
+            """
+            UPDATE threads
+            SET title = ?, updated_at = ?
+            WHERE id = ? AND deleted_at IS NULL
+            """,
+            (normalized_title, ts, thread_id),
+        )
+        _conn().commit()
+
+    if cursor.rowcount == 0:
+        return None
+    return get_thread(thread_id)
+
+
+def soft_delete_thread(thread_id: str) -> bool:
+    ts = now_iso()
+    with _LOCK:
+        cursor = _conn().execute(
+            """
+            UPDATE threads
+            SET deleted_at = ?, updated_at = ?
+            WHERE id = ? AND deleted_at IS NULL
+            """,
+            (ts, ts, thread_id),
+        )
+        _conn().commit()
+    return cursor.rowcount > 0
 
 
 def insert_message(
@@ -120,12 +194,7 @@ def list_threads() -> list[dict[str, Any]]:
 
 
 def thread_exists(thread_id: str) -> bool:
-    with _LOCK:
-        row = _conn().execute(
-            "SELECT 1 FROM threads WHERE id = ? AND deleted_at IS NULL",
-            (thread_id,),
-        ).fetchone()
-    return row is not None
+    return get_thread(thread_id) is not None
 
 
 def list_messages(thread_id: str) -> list[dict[str, Any]]:
