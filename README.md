@@ -61,7 +61,7 @@ npm install
 npm run build
 cd ..
 
-# Run the Python server that serves compiled frontend assets from src/public/dist
+# Run the Python server that serves compiled frontend assets from public/
 cd src
 uv run server.py
 ```
@@ -72,8 +72,8 @@ Models are downloaded automatically on first run (~2.6 GB for Gemma 4 E2B, plus 
 
 ## Frontend development and build
 
-Frontend source files live in `frontend/` and are compiled with Vite into `src/public/dist/`.
-The Python FastAPI app serves only compiled artifacts at runtime (`/dist/*`); there is no Node.js server in production.
+Frontend source files live in `frontend/` and are compiled with Vite into `public/` (`assets/`, optional `vendor/`, and `.vite/manifest.json`).
+The Python FastAPI app serves static artifacts at runtime from `public/` (`/assets/*`); there is no Node.js server in production.
 
 ```bash
 # from repo root
@@ -87,7 +87,7 @@ npm run build
 npm run dev
 ```
 
-When running `uv run server.py`, FastAPI serves the compiled files from `src/public/dist` and injects hashed Vite assets from `manifest.json` into the HTML response.
+When running `uv run server.py`, FastAPI serves built assets from `public/assets`, reads Vite metadata from `public/.vite/manifest.json`, and injects hashed asset tags into `public/index.html` before returning the response.
 
 ## Configuration
 
@@ -116,14 +116,17 @@ frontend/
 ├── main.js               # Vite entrypoint
 ├── styles.css            # Tailwind v4 entry + app styles
 ├── tailwind.config.js    # Tailwind content scanning
-├── vite.config.js        # Build to src/public/dist + manifest
+├── vite.config.js        # Build to public/ (assets + .vite manifest)
 └── package.json          # Frontend build dependencies
+
+public/
+├── index.html            # Runtime HTML template copied from frontend/index.html
+├── assets/               # Compiled frontend JS/CSS artifacts from Vite
+└── .vite/                # Vite manifest for hashed asset injection
 
 src/
 ├── server.py             # FastAPI WebSocket server + static dist serving
 ├── tts.py                # Platform-aware TTS (MLX on Mac, ONNX on Linux)
-├── index.html            # HTML template with injected hashed Vite assets
-├── public/dist/          # Compiled frontend artifacts from Vite
 ├── pyproject.toml        # Python dependencies
 └── benchmarks/
     ├── bench.py          # End-to-end WebSocket benchmark
