@@ -493,4 +493,18 @@ async def websocket_endpoint(ws: WebSocket):
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8000"))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    ssl_keyfile = os.environ.get("SSL_KEYFILE")
+    ssl_certfile = os.environ.get("SSL_CERTFILE")
+
+    if bool(ssl_keyfile) ^ bool(ssl_certfile):
+        raise RuntimeError("SSL_KEYFILE and SSL_CERTFILE must be set together")
+
+    uvicorn.run(
+        app,
+        host="0.0.0.0",
+        port=port,
+        proxy_headers=True,
+        forwarded_allow_ips="*",
+        ssl_keyfile=ssl_keyfile,
+        ssl_certfile=ssl_certfile,
+    )

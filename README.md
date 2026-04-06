@@ -95,6 +95,10 @@ When running `uv run server.py`, FastAPI serves built assets from `public/assets
 | ------------ | ------------------------------ | ---------------------------------------------- |
 | `MODEL_PATH` | auto-download from HuggingFace | Path to a local `gemma-4-E2B-it.litertlm` file |
 | `PORT`       | `8000`                         | Server port                                    |
+| `SSL_CERTFILE` | unset                        | Optional TLS certificate file for HTTPS/WSS    |
+| `SSL_KEYFILE` | unset                         | Optional TLS key file for HTTPS/WSS            |
+
+Set both `SSL_CERTFILE` and `SSL_KEYFILE` to enable HTTPS. The frontend automatically upgrades to `wss://` for `/ws` when loaded over `https://`.
 
 ## Performance (Apple M3 Pro)
 
