@@ -327,6 +327,9 @@ export function parlorApp() {
     async deleteThread(threadId) {
       const idx = this.threads.findIndex(t => t.id === threadId);
       if (idx === -1) return;
+      const previousThreads = [...this.threads];
+      const previousActiveThreadId = this.activeThreadId;
+      const previousMessages = [...this.messages];
       const fallback = this.threads[idx + 1]?.id || this.threads[idx - 1]?.id || null;
       this.threads = this.threads.filter(t => t.id !== threadId);
       if (this.activeThreadId === threadId) {
@@ -339,6 +342,9 @@ export function parlorApp() {
           await this.selectThread(fallback);
         }
       } catch (err) {
+        this.threads = previousThreads;
+        this.activeThreadId = previousActiveThreadId;
+        this.messages = previousMessages;
         this.notify(`Delete failed: ${err.message}`, 'error');
       }
     },

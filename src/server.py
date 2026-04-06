@@ -177,7 +177,7 @@ async def csrf_protect(request: Request, call_next: Any) -> Response:
 
 
 @app.get("/")
-async def root() -> HTMLResponse:
+async def root(request: Request) -> HTMLResponse:
     template = INDEX_TEMPLATE_PATH.read_text()
     css_tags, js_tag = vite_asset_tags()
     csrf_token = base64.urlsafe_b64encode(os.urandom(32)).decode("ascii")
@@ -190,7 +190,7 @@ async def root() -> HTMLResponse:
     response.set_cookie(
         key="csrf_token",
         value=csrf_token,
-        secure=False,
+        secure=request.url.scheme == "https",
         httponly=False,
         samesite="strict",
     )
@@ -266,6 +266,8 @@ async def import_database(db_file: UploadFile = File(...)) -> dict[str, bool]:
         tmp_path = Path(tmp.name)
     try:
         storage.import_database(tmp_path)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     finally:
         tmp_path.unlink(missing_ok=True)
     return {"ok": True}
