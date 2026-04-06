@@ -350,8 +350,19 @@ export function parlorApp() {
     },
 
     connect() {
-      const wsProtocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-      this.ws = new WebSocket(`${wsProtocol}://${location.host}/ws`);
+      const wsUrl = this.resolveWebSocketUrl();
+      if (!wsUrl) {
+        this.setStatus('disconnected', 'Unsupported page protocol');
+        this.notify(
+          `Unsupported page protocol "${window.location.protocol}". ` +
+          'Set window.PARLOR_WS_URL to a ws:// or wss:// endpoint.',
+          'error',
+          9000,
+        );
+        return;
+      }
+
+      this.ws = new WebSocket(wsUrl);
       this.ws.onopen = () => {
         this.setStatus('connected', 'Connected');
         if (this.state !== 'loading') this.setState('listening');
@@ -400,6 +411,22 @@ export function parlorApp() {
           this.addMessage('assistant', msg.detail || 'Thread error', '');
         }
       };
+    },
+
+    resolveWebSocketUrl() {
+      const manualUrl = (window.PARLOR_WS_URL || '').trim();
+      if (manualUrl) return manualUrl;
+
+      const protocolMap = {
+        'https:': 'wss:',
+        'http:': 'ws:',
+        'wss:': 'wss:',
+        'ws:': 'ws:',
+      };
+      const wsProtocol = protocolMap[window.location.protocol];
+      if (!wsProtocol) return null;
+
+      return `${wsProtocol}//${window.location.host}/ws`;
     },
 
     setStatus(cls, text) {
