@@ -4,13 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Parlor</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=Syne:wght@700;800&display=swap" rel="stylesheet">
 <!-- CSRF_META -->
 <!-- VITE_CSS -->
 </head>
-<body x-data="parlorApp()" x-init="init()">
+<body x-data="parlorApp()" x-init="init()" x-bind:data-theme="resolvedTheme">
 
 <div class="app-shell">
   <aside class="sidebar">
@@ -20,7 +17,10 @@
         <h1>Parlor</h1>
       </div>
       <div class="model-label">Gemma 4 E2B</div>
-      <button class="ctrl-btn mt-2.5 w-full" @click="createThread" :disabled="isLoadingThreads">+ New Thread</button>
+      <div class="sidebar-actions">
+        <button class="ctrl-btn" @click="createThread" :disabled="isLoadingThreads">+ New Thread</button>
+        <button class="ctrl-btn" @click="openSettings">Settings</button>
+      </div>
     </div>
 
     <div class="thread-list">
@@ -53,6 +53,12 @@
     </header>
 
     <div class="portal-stack">
+      <template x-if="browserWarnings.length">
+        <div class="api-warning">
+          Browser compatibility warning: <span x-text="browserWarnings.join(', ')"></span>
+        </div>
+      </template>
+
       <div id="viewportWrap" class="viewport-wrap loading">
         <div class="viewport-glow"></div>
         <video id="video" autoplay muted playsinline></video>
@@ -90,8 +96,73 @@
     </div>
   </section>
 </div>
-<script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/ort.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.29/dist/bundle.min.js"></script>
+
+<div class="settings-overlay" x-show="isSettingsOpen" x-cloak @click.self="closeSettings">
+  <div class="settings-modal">
+    <h2>Settings</h2>
+
+    <label>Theme
+      <select x-model="settings.theme" @change="saveSettings">
+        <option value="auto">Auto</option>
+        <option value="light">Light</option>
+        <option value="dark">Dark</option>
+      </select>
+    </label>
+
+    <label>Primary color
+      <input type="color" x-model="settings.primaryColor" @input="saveSettings" />
+    </label>
+
+    <label>Font size
+      <select x-model="settings.fontSize" @change="saveSettings">
+        <option value="14px">Small</option>
+        <option value="16px">Default</option>
+        <option value="18px">Large</option>
+        <option value="20px">Extra large</option>
+      </select>
+    </label>
+
+    <div class="settings-row">
+      <button class="ctrl-btn" @click="exportSqlite">Export SQLite</button>
+      <label class="ctrl-btn import-btn">
+        Import SQLite
+        <input type="file" accept=".sqlite,.db,.sqlite3,application/octet-stream" @change="importSqlite($event)">
+      </label>
+    </div>
+
+    <button class="ctrl-btn" @click="closeSettings">Close</button>
+  </div>
+</div>
+
+<div class="toast-stack">
+  <template x-for="toast in toasts" :key="toast.id">
+    <div class="toast" :class="toast.type" x-text="toast.text"></div>
+  </template>
+</div>
+
+<script>
+(function loadVendorScripts() {
+  const load = (src, fallback) => new Promise((resolve, reject) => {
+    const el = document.createElement('script');
+    el.src = src;
+    el.onload = resolve;
+    el.onerror = () => {
+      if (!fallback) return reject(new Error(`Failed to load ${src}`));
+      const alt = document.createElement('script');
+      alt.src = fallback;
+      alt.onload = resolve;
+      alt.onerror = () => reject(new Error(`Failed to load ${src} and fallback`));
+      document.head.appendChild(alt);
+    };
+    document.head.appendChild(el);
+  });
+
+  Promise.all([
+    load('/vendor/onnxruntime-web/ort.min.js', 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/ort.min.js'),
+    load('/vendor/vad-web/bundle.min.js', 'https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.29/dist/bundle.min.js'),
+  ]).catch((err) => console.warn(err.message));
+})();
+</script>
 <!-- VITE_JS -->
 </body>
 </html>
