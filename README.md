@@ -70,6 +70,19 @@ Open [http://localhost:8000](http://localhost:8000), grant camera and microphone
 
 Models are downloaded automatically on first run (~2.6 GB for Gemma 4 E2B, plus TTS models).
 
+## Desktop app (Tauri v2)
+
+The `desktop/` workspace is now the desktop entrypoint. Tauri launches a bundled backend sidecar (`parlor-backend`) on a dynamic localhost port, waits for `/api/health`, then opens the app window to that URL.
+
+```bash
+# from repo root
+cd desktop
+npm install
+npm run dev
+```
+
+To package the desktop app, provide a bundled backend executable named for Tauri sidecar conventions under `src/bin/parlor-backend-*` (for each target triple) so `tauri build` can include it.
+
 ## Frontend development and build
 
 Frontend source files live in `frontend/` and are compiled with Vite into `public/` (`assets/`, optional `vendor/`, and `.vite/manifest.json`).
@@ -135,6 +148,11 @@ src/
 └── benchmarks/
     ├── bench.py          # End-to-end WebSocket benchmark
     └── benchmark_tts.py  # TTS backend comparison
+
+desktop/
+└── src-tauri/
+    ├── src/main.rs       # Tauri desktop entrypoint + backend sidecar lifecycle
+    └── tauri.conf.json   # Window + bundle/sidecar configuration
 ```
 
 ## Acknowledgments

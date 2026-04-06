@@ -1,0 +1,41 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Parlor",
+  "version": "0.1.0",
+  "identifier": "com.parlor.app",
+  "build": {
+    "beforeDevCommand": "",
+    "beforeBuildCommand": "",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Parlor",
+        "width": 1280,
+        "height": 800,
+        "visible": false,
+        "url": "about:blank"
+      }
+    ]
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "externalBin": [
+      "../../src/bin/parlor-backend"
+    ]
+  },
+  "plugins": {
+    "shell": {
+      "scope": [
+        {
+          "name": "parlor-backend",
+          "sidecar": true,
+          "args": true
+        }
+      ]
+    }
+  }
+}

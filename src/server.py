@@ -201,6 +201,10 @@ async def root(request: Request) -> HTMLResponse:
 async def get_threads() -> dict[str, list[dict[str, Any]]]:
     return {"threads": storage.list_threads()}
 
+@app.get("/api/health")
+async def health() -> dict[str, str]:
+    return {"status": "ok"}
+
 
 @app.post("/api/threads")
 async def create_thread(payload: ThreadPayload | None = None) -> dict[str, dict[str, Any]]:
