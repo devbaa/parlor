@@ -265,6 +265,11 @@ async def websocket_endpoint(ws: WebSocket):
                             transcription=transcription,
                             content=user_content,
                         )
+                        storage.maybe_set_generated_title(
+                            thread_id,
+                            transcription=transcription,
+                            content=user_content,
+                        )
                         storage.insert_message(
                             message_id=str(uuid.uuid4()),
                             thread_id=thread_id,
