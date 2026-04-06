@@ -20,3 +20,7 @@ default.profraw
 # IDE
 .idea/
 .vscode/
+
+# Frontend
+frontend/node_modules/
+public/dist/
