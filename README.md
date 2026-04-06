@@ -53,12 +53,41 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 
 cd src
 uv sync
+cd ..
+
+# Install frontend build tooling (Node.js is build-time only)
+cd frontend
+npm install
+npm run build
+cd ..
+
+# Run the Python server that serves compiled frontend assets from src/public/dist
+cd src
 uv run server.py
 ```
 
 Open [http://localhost:8000](http://localhost:8000), grant camera and microphone access, and start talking.
 
 Models are downloaded automatically on first run (~2.6 GB for Gemma 4 E2B, plus TTS models).
+
+## Frontend development and build
+
+Frontend source files live in `frontend/` and are compiled with Vite into `src/public/dist/`.
+The Python FastAPI app serves only compiled artifacts at runtime (`/dist/*`); there is no Node.js server in production.
+
+```bash
+# from repo root
+cd frontend
+npm install
+
+# one-time or CI build
+npm run build
+
+# optional local frontend iteration with Vite dev server
+npm run dev
+```
+
+When running `uv run server.py`, FastAPI serves the compiled files from `src/public/dist` and injects hashed Vite assets from `manifest.json` into the HTML response.
 
 ## Configuration
 
@@ -81,14 +110,24 @@ Decode speed: ~83 tokens/sec on GPU (Apple M3 Pro).
 ## Project structure
 
 ```
+frontend/
+├── app.js                # Alpine app logic
+├── index.html            # Frontend template for Vite dev
+├── main.js               # Vite entrypoint
+├── styles.css            # Tailwind v4 entry + app styles
+├── tailwind.config.js    # Tailwind content scanning
+├── vite.config.js        # Build to src/public/dist + manifest
+└── package.json          # Frontend build dependencies
+
 src/
-├── server.py              # FastAPI WebSocket server + Gemma 4 inference
-├── tts.py                 # Platform-aware TTS (MLX on Mac, ONNX on Linux)
-├── index.html             # Frontend UI (VAD, camera, audio playback)
-├── pyproject.toml         # Dependencies
+├── server.py             # FastAPI WebSocket server + static dist serving
+├── tts.py                # Platform-aware TTS (MLX on Mac, ONNX on Linux)
+├── index.html            # HTML template with injected hashed Vite assets
+├── public/dist/          # Compiled frontend artifacts from Vite
+├── pyproject.toml        # Python dependencies
 └── benchmarks/
-    ├── bench.py           # End-to-end WebSocket benchmark
-    └── benchmark_tts.py   # TTS backend comparison
+    ├── bench.py          # End-to-end WebSocket benchmark
+    └── benchmark_tts.py  # TTS backend comparison
 ```
 
 ## Acknowledgments
