@@ -31,10 +31,11 @@ import tts
 HF_REPO = "litert-community/gemma-4-E2B-it-litert-lm"
 HF_FILENAME = "gemma-4-E2B-it.litertlm"
 DB_PATH = Path(__file__).parent / "parlor.db"
-PUBLIC_DIR = Path(__file__).parent / "public"
+REPO_ROOT = Path(__file__).resolve().parent.parent
+PUBLIC_DIR = REPO_ROOT / "public"
 DIST_DIR = PUBLIC_DIR / "dist"
 MANIFEST_PATH = DIST_DIR / "manifest.json"
-INDEX_TEMPLATE_PATH = Path(__file__).parent / "index.html"
+INDEX_TEMPLATE_PATH = PUBLIC_DIR / "index.html"
 
 logger = logging.getLogger(__name__)
 
