@@ -369,6 +369,12 @@ async def import_database(db_file: UploadFile = File(...)) -> dict[str, bool]:
         tmp_path.unlink(missing_ok=True)
     return {"ok": True}
 
+
+@app.post("/api/db/reset")
+async def reset_database() -> dict[str, bool]:
+    storage.reset_database()
+    return {"ok": True}
+
 @app.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket):
     await ws.accept()

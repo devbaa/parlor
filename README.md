@@ -108,6 +108,15 @@ This runs:
 
 `tauri build` also runs the same `prepackage` step via `beforeBuildCommand`, so stale `public/assets` cannot slip into release artifacts.
 
+### Planned updater strategy (post-v1 packaging stabilization)
+
+After we validate stable v1 packaging/signing across macOS + Linux installers, we plan to enable Tauri's built-in updater in a phased rollout:
+
+1. **Prerequisites:** deterministic release artifacts, code-signing/notarization, and release-channel metadata hosted over HTTPS.
+2. **Opt-in beta ring:** `check on launch` + manual `Check for updates` menu action, with explicit release notes before install.
+3. **General availability:** staged rollout percentages, failure telemetry from updater logs, and immediate rollback path via previous installer.
+4. **Safety defaults:** no forced updates for v1; users can defer updates. Critical fix policy can be added later once the flow proves reliable.
+
 ## Frontend development and build
 
 Frontend source files live in `frontend/` and are compiled with Vite into `public/` (`assets/`, optional `vendor/`, and `.vite/manifest.json`).

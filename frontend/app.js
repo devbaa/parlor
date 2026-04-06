@@ -1,4 +1,5 @@
 const SETTINGS_KEY = 'parlor-settings-v1';
+const FIRST_RUN_KEY = 'parlor-first-run-ack-v1';
 
 const DEFAULT_SETTINGS = {
   theme: 'auto',
@@ -45,6 +46,11 @@ export function parlorApp() {
     resolvedTheme: 'dark',
     toasts: [],
     browserWarnings: [],
+    isFirstRunModalOpen: false,
+    isBackendCrashModalOpen: false,
+    backendCrashReason: '',
+    isRestartingBackend: false,
+    tauriUnsubscribers: [],
 
     get activeThreadTitle() {
       const t = this.threads.find(thread => thread.id === this.activeThreadId);
@@ -135,6 +141,8 @@ export function parlorApp() {
 
       this.loadSettings();
       this.checkBrowserSupport();
+      this.isFirstRunModalOpen = !localStorage.getItem(FIRST_RUN_KEY);
+      this.setupTauriListeners();
 
       this.initWaveformCanvas();
       window.addEventListener('resize', () => this.initWaveformCanvas());
@@ -163,6 +171,102 @@ export function parlorApp() {
 
       this.setState('listening');
       this.drawWaveform();
+    },
+
+    async setupTauriListeners() {
+      if (!window.__TAURI__?.event?.listen) return;
+      const listen = window.__TAURI__.event.listen;
+
+      const unsubCrash = await listen('backend-crashed', (event) => {
+        this.backendCrashReason = event?.payload || 'The backend terminated unexpectedly.';
+        this.isBackendCrashModalOpen = true;
+        this.setStatus('disconnected', 'Backend crashed');
+      });
+
+      const unsubRestarted = await listen('backend-restarted', () => {
+        this.isRestartingBackend = false;
+        this.isBackendCrashModalOpen = false;
+        this.backendCrashReason = '';
+        this.notify('Backend restarted.', 'success');
+        this.connect();
+        this.loadThreads();
+      });
+
+      const unsubRestartFailed = await listen('backend-restart-failed', (event) => {
+        this.isRestartingBackend = false;
+        this.notify(`Backend restart failed: ${event?.payload || 'unknown error'}`, 'error', 7000);
+      });
+
+      const unsubDbReset = await listen('db-reset', async () => {
+        this.notify('Local database reset.', 'success');
+        this.threads = [];
+        this.messages = [];
+        this.activeThreadId = null;
+        await this.loadThreads();
+      });
+
+      const unsubMenuError = await listen('menu-error', (event) => {
+        this.notify(event?.payload || 'Menu action failed.', 'error', 7000);
+      });
+
+      this.tauriUnsubscribers = [unsubCrash, unsubRestarted, unsubRestartFailed, unsubDbReset, unsubMenuError];
+    },
+
+    acknowledgeFirstRun() {
+      localStorage.setItem(FIRST_RUN_KEY, '1');
+      this.isFirstRunModalOpen = false;
+    },
+
+    async restartBackend() {
+      if (this.isRestartingBackend) return;
+      if (!window.__TAURI__?.core?.invoke) {
+        this.notify('Restart backend is only available in the desktop app.', 'warning');
+        return;
+      }
+      this.isRestartingBackend = true;
+      try {
+        await window.__TAURI__.core.invoke('restart_backend_command');
+      } catch (err) {
+        this.isRestartingBackend = false;
+        this.notify(`Backend restart failed: ${err}`, 'error', 7000);
+      }
+    },
+
+    async openLogsFolder() {
+      if (!window.__TAURI__?.core?.invoke) {
+        this.notify('Open logs is only available in the desktop app.', 'warning');
+        return;
+      }
+      try {
+        await window.__TAURI__.core.invoke('open_logs_folder_command');
+      } catch (err) {
+        this.notify(`Could not open logs: ${err}`, 'error', 7000);
+      }
+    },
+
+    async openDataFolder() {
+      if (!window.__TAURI__?.core?.invoke) {
+        this.notify('Open data folder is only available in the desktop app.', 'warning');
+        return;
+      }
+      try {
+        await window.__TAURI__.core.invoke('open_data_folder_command');
+      } catch (err) {
+        this.notify(`Could not open data folder: ${err}`, 'error', 7000);
+      }
+    },
+
+    async resetLocalDb() {
+      if (!window.confirm('Reset local DB? This permanently removes all local threads and messages.')) return;
+      if (!window.__TAURI__?.core?.invoke) {
+        this.notify('Reset local DB is only available in the desktop app.', 'warning');
+        return;
+      }
+      try {
+        await window.__TAURI__.core.invoke('reset_local_db_command');
+      } catch (err) {
+        this.notify(`DB reset failed: ${err}`, 'error', 7000);
+      }
     },
 
     async initVad() {
