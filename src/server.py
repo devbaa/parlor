@@ -3,24 +3,30 @@
 import asyncio
 import base64
 import json
+import logging
 import os
 import re
 import tempfile
 import time
+import uuid
 from pathlib import Path
 
 import numpy as np
 import uvicorn
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 
 import litert_lm
+import storage
 import tts
 
 HF_REPO = "litert-community/gemma-4-E2B-it-litert-lm"
 HF_FILENAME = "gemma-4-E2B-it.litertlm"
+DB_PATH = Path(__file__).parent / "parlor.db"
+
+logger = logging.getLogger(__name__)
 
 
 def resolve_model_path() -> str:
@@ -63,6 +69,7 @@ def load_models():
 
 @asynccontextmanager
 async def lifespan(app):
+    storage.init_db(DB_PATH)
     await asyncio.get_event_loop().run_in_executor(None, load_models)
     yield
 
@@ -88,9 +95,26 @@ async def root():
     return HTMLResponse(content=(Path(__file__).parent / "index.html").read_text())
 
 
+@app.get("/api/threads")
+async def get_threads():
+    return {"threads": storage.list_threads()}
+
+
+@app.get("/api/threads/{thread_id}/messages")
+async def get_thread_messages(thread_id: str):
+    if not storage.thread_exists(thread_id):
+        raise HTTPException(status_code=404, detail="Thread not found")
+    return {"thread_id": thread_id, "messages": storage.list_messages(thread_id)}
+
+
 @app.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket):
     await ws.accept()
+    thread_id = ws.query_params.get("thread_id") or str(uuid.uuid4())
+    try:
+        storage.ensure_thread(thread_id)
+    except Exception:
+        logger.exception("Failed to initialize thread %s", thread_id)
 
     # Per-connection tool state captured via closure
     tool_result = {}
@@ -181,17 +205,45 @@ async def websocket_endpoint(ws: WebSocket):
                     text_response = response["content"][0]["text"]
                     print(f"LLM ({llm_time:.2f}s) [no tool]: {text_response}")
 
+                user_content = transcription or msg.get("text") or ("[audio+image]" if audio_path and image_path else "[audio]" if audio_path else "[image]")
+                tts_time = None
+                assistant_content = text_response
+
+                def persist_turn(tts_elapsed: float | None = None) -> None:
+                    try:
+                        storage.ensure_thread(thread_id)
+                        storage.insert_message(
+                            message_id=str(uuid.uuid4()),
+                            thread_id=thread_id,
+                            role="user",
+                            transcription=transcription,
+                            content=user_content,
+                        )
+                        storage.insert_message(
+                            message_id=str(uuid.uuid4()),
+                            thread_id=thread_id,
+                            role="assistant",
+                            content=assistant_content,
+                            llm_time=round(llm_time, 3),
+                            tts_time=round(tts_elapsed, 3) if tts_elapsed is not None else None,
+                        )
+                    except Exception:
+                        logger.exception("Failed to persist websocket turn for thread %s", thread_id)
+
                 if interrupted.is_set():
                     print("Interrupted after LLM, skipping response")
+                    persist_turn(None)
                     continue
 
                 reply = {"type": "text", "text": text_response, "llm_time": round(llm_time, 2)}
                 if transcription:
                     reply["transcription"] = transcription
+                reply["thread_id"] = thread_id
                 await ws.send_text(json.dumps(reply))
 
                 if interrupted.is_set():
                     print("Interrupted before TTS, skipping audio")
+                    persist_turn(None)
                     continue
 
                 # Streaming TTS: split into sentences and send chunks progressively
@@ -237,6 +289,8 @@ async def websocket_endpoint(ws: WebSocket):
                         "type": "audio_end",
                         "tts_time": round(tts_time, 2),
                     }))
+
+                persist_turn(tts_time)
 
             finally:
                 for p in [audio_path, image_path]:
