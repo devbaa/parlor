@@ -15,9 +15,7 @@ export function parlorApp() {
     editingThreadId: null,
     editingTitle: '',
     isLoadingThreads: false,
-    isLoadingMessages: false,
     statusText: 'Disconnected',
-    statusClass: 'disconnected',
     csrfToken: null,
 
     ws: null,
@@ -40,7 +38,6 @@ export function parlorApp() {
     waveformCtx: null,
     BAR_COUNT: 40,
     BAR_GAP: 3,
-    waveformRAF: null,
     ambientPhase: 0,
 
     isSettingsOpen: false,
@@ -145,6 +142,12 @@ export function parlorApp() {
       await this.startCamera();
       await this.loadThreads();
       this.connect();
+
+      try {
+        await window.ensureVendorScripts?.();
+      } catch (err) {
+        this.notify(`Failed to load speech dependencies: ${err.message}`, 'error', 7000);
+      }
 
       await this.initVad();
 
@@ -258,7 +261,6 @@ export function parlorApp() {
     },
 
     async loadMessages(threadId) {
-      this.isLoadingMessages = true;
       try {
         const data = await this.api(`/api/threads/${threadId}/messages`);
         this.messages = (data.messages || []).map(m => this.mapMessage(m));
@@ -268,8 +270,6 @@ export function parlorApp() {
         });
       } catch (err) {
         this.notify(`Failed to load messages: ${err.message}`, 'error');
-      } finally {
-        this.isLoadingMessages = false;
       }
     },
 
@@ -397,7 +397,6 @@ export function parlorApp() {
     },
 
     setStatus(cls, text) {
-      this.statusClass = cls;
       this.statusText = text;
       this.statusEl.className = `status-pill ${cls}`;
       this.statusEl.textContent = text;
@@ -612,7 +611,7 @@ export function parlorApp() {
       }
 
       this.waveformCtx.globalAlpha = 1;
-      this.waveformRAF = requestAnimationFrame(() => this.drawWaveform());
+      requestAnimationFrame(() => this.drawWaveform());
     },
 
     updateSpeakingGlow() {

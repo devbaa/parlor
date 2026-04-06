@@ -67,7 +67,8 @@ body::before { content: ''; position: fixed; top: 20%; left: 50%; transform: tra
 .thread-row { display: flex; align-items: start; justify-content: space-between; gap: 8px; }
 .thread-title { font-size: 13px; color: var(--c-text-bright); line-height: 1.3; word-break: break-word; }
 .thread-actions { display: flex; gap: 6px; }
-.icon-btn { border: none; background: transparent; color: var(--c-text-dim); cursor: pointer; font-size: 12px; }
+.icon-btn { border: none; background: transparent; color: var(--c-text-dim); cursor: pointer; width: 20px; height: 20px; display: inline-grid; place-items: center; padding: 0; }
+.icon-btn svg { width: 14px; height: 14px; }
 .icon-btn:hover { color: var(--c-text-bright); }
 .thread-time { font-size: 11px; color: var(--c-text-dim); margin-top: 6px; }
 .thread-edit { margin-top: 8px; display: flex; gap: 6px; }
