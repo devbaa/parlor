@@ -26,3 +26,5 @@ frontend/node_modules/
 public/assets/
 public/.vite/
 public/vendor/
+desktop/node_modules/
+desktop/src-tauri/target/

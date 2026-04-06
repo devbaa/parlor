@@ -1,0 +1,18 @@
+[package]
+name = "parlor-desktop"
+version = "0.1.0"
+description = "Desktop entrypoint for Parlor"
+authors = ["Parlor"]
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+tauri = { version = "2", features = [] }
+tauri-plugin-shell = "2"
+
+[features]
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]
