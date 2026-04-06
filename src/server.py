@@ -8,6 +8,7 @@ import logging
 import os
 import re
 import shutil
+import sys
 import tempfile
 import time
 import uuid
@@ -30,15 +31,74 @@ import tts
 
 HF_REPO = "litert-community/gemma-4-E2B-it-litert-lm"
 HF_FILENAME = "gemma-4-E2B-it.litertlm"
-DB_PATH = Path(__file__).parent / "parlor.db"
-REPO_ROOT = Path(__file__).resolve().parent.parent
-PUBLIC_DIR = REPO_ROOT / "public"
+APP_NAME = "parlor"
+
+logger = logging.getLogger(__name__)
+
+
+def running_frozen() -> bool:
+    return bool(getattr(sys, "frozen", False))
+
+
+def resolve_data_dir() -> Path:
+    configured = os.environ.get("PARLOR_DATA_DIR")
+    if configured:
+        base = Path(configured).expanduser()
+    elif sys.platform == "win32":
+        appdata = os.environ.get("APPDATA")
+        base = Path(appdata) / APP_NAME if appdata else Path.home() / "AppData" / "Roaming" / APP_NAME
+    elif sys.platform == "darwin":
+        base = Path.home() / "Library" / "Application Support" / APP_NAME
+    else:
+        xdg_data_home = os.environ.get("XDG_DATA_HOME")
+        if xdg_data_home:
+            base = Path(xdg_data_home) / APP_NAME
+        else:
+            base = Path.home() / ".local" / "share" / APP_NAME
+    base.mkdir(parents=True, exist_ok=True)
+    return base
+
+
+def resolve_public_dir() -> Path:
+    file_dir = Path(__file__).resolve().parent
+    repo_root = file_dir.parent
+    executable_dir = Path(sys.executable).resolve().parent
+    meipass_dir = Path(getattr(sys, "_MEIPASS", "")) if running_frozen() else None
+
+    candidates: list[Path] = []
+    if meipass_dir:
+        candidates.extend([
+            meipass_dir / "public",
+            meipass_dir / "_internal" / "public",
+        ])
+
+    candidates.extend(
+        [
+            file_dir / "public",
+            repo_root / "public",
+            executable_dir / "public",
+            executable_dir / "resources" / "public",
+            executable_dir.parent / "Resources" / "public",  # macOS app bundle
+            executable_dir / "_internal" / "public",
+        ]
+    )
+
+    for public_dir in candidates:
+        index_path = public_dir / "index.html"
+        if public_dir.exists() and index_path.exists():
+            return public_dir
+
+    checked = ", ".join(str(path) for path in candidates)
+    raise RuntimeError(f"Could not locate bundled frontend assets. Checked: {checked}")
+
+
+DATA_DIR = resolve_data_dir()
+DB_PATH = DATA_DIR / "parlor.db"
+PUBLIC_DIR = resolve_public_dir()
 ASSETS_DIR = PUBLIC_DIR / "assets"
 VENDOR_DIR = PUBLIC_DIR / "vendor"
 MANIFEST_PATH = PUBLIC_DIR / ".vite" / "manifest.json"
 INDEX_TEMPLATE_PATH = PUBLIC_DIR / "index.html"
-
-logger = logging.getLogger(__name__)
 
 
 def resolve_model_path() -> str:
@@ -203,6 +263,10 @@ async def get_threads() -> dict[str, list[dict[str, Any]]]:
 
 @app.get("/api/health")
 async def health() -> dict[str, str]:
+    return {"status": "ok"}
+
+@app.get("/healthz")
+async def healthz() -> dict[str, str]:
     return {"status": "ok"}
 
 
