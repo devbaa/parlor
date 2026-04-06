@@ -10,6 +10,7 @@ import tempfile
 import time
 import uuid
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import uvicorn
@@ -17,6 +18,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
+from pydantic import BaseModel
 
 import litert_lm
 import storage
@@ -77,6 +79,10 @@ async def lifespan(app):
 app = FastAPI(lifespan=lifespan)
 
 
+class ThreadPayload(BaseModel):
+    title: str | None = None
+
+
 def save_temp(data: bytes, suffix: str) -> str:
     tmp = tempfile.NamedTemporaryFile(suffix=suffix, delete=False)
     tmp.write(data)
@@ -100,6 +106,30 @@ async def get_threads():
     return {"threads": storage.list_threads()}
 
 
+@app.post("/api/threads")
+async def create_thread(payload: ThreadPayload | None = None):
+    thread = storage.create_thread(
+        thread_id=str(uuid.uuid4()),
+        title=payload.title if payload else None,
+    )
+    return {"thread": thread}
+
+
+@app.patch("/api/threads/{thread_id}")
+async def update_thread(thread_id: str, payload: ThreadPayload | None = None):
+    thread = storage.update_thread_title(thread_id, payload.title if payload else None)
+    if thread is None:
+        raise HTTPException(status_code=404, detail="Thread not found")
+    return {"thread": thread}
+
+
+@app.delete("/api/threads/{thread_id}")
+async def delete_thread(thread_id: str):
+    if not storage.soft_delete_thread(thread_id):
+        raise HTTPException(status_code=404, detail="Thread not found")
+    return {"ok": True}
+
+
 @app.get("/api/threads/{thread_id}/messages")
 async def get_thread_messages(thread_id: str):
     if not storage.thread_exists(thread_id):
@@ -107,14 +137,20 @@ async def get_thread_messages(thread_id: str):
     return {"thread_id": thread_id, "messages": storage.list_messages(thread_id)}
 
 
+def resolve_active_thread_id(message: dict[str, Any]) -> str:
+    payload_thread_id = (message.get("thread_id") or "").strip()
+    if payload_thread_id:
+        if not storage.thread_exists(payload_thread_id):
+            raise HTTPException(status_code=404, detail="Thread not found")
+        return payload_thread_id
+
+    created = storage.create_thread(thread_id=str(uuid.uuid4()))
+    return created["id"]
+
+
 @app.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket):
     await ws.accept()
-    thread_id = ws.query_params.get("thread_id") or str(uuid.uuid4())
-    try:
-        storage.ensure_thread(thread_id)
-    except Exception:
-        logger.exception("Failed to initialize thread %s", thread_id)
 
     # Per-connection tool state captured via closure
     tool_result = {}
@@ -165,6 +201,16 @@ async def websocket_endpoint(ws: WebSocket):
             interrupted.clear()
 
             try:
+                try:
+                    thread_id = resolve_active_thread_id(msg)
+                except HTTPException:
+                    await ws.send_text(json.dumps({
+                        "type": "error",
+                        "status": 404,
+                        "detail": "Thread not found",
+                    }))
+                    continue
+
                 if msg.get("audio"):
                     audio_path = save_temp(base64.b64decode(msg["audio"]), ".wav")
                 if msg.get("image"):
@@ -235,10 +281,14 @@ async def websocket_endpoint(ws: WebSocket):
                     persist_turn(None)
                     continue
 
-                reply = {"type": "text", "text": text_response, "llm_time": round(llm_time, 2)}
+                reply = {
+                    "type": "text",
+                    "text": text_response,
+                    "llm_time": round(llm_time, 2),
+                    "thread_id": thread_id,
+                }
                 if transcription:
                     reply["transcription"] = transcription
-                reply["thread_id"] = thread_id
                 await ws.send_text(json.dumps(reply))
 
                 if interrupted.is_set():
@@ -258,6 +308,7 @@ async def websocket_endpoint(ws: WebSocket):
                     "type": "audio_start",
                     "sample_rate": tts_backend.sample_rate,
                     "sentence_count": len(sentences),
+                    "thread_id": thread_id,
                 }))
 
                 for i, sentence in enumerate(sentences):
@@ -279,6 +330,7 @@ async def websocket_endpoint(ws: WebSocket):
                         "type": "audio_chunk",
                         "audio": base64.b64encode(pcm_int16.tobytes()).decode(),
                         "index": i,
+                        "thread_id": thread_id,
                     }))
 
                 tts_time = time.time() - tts_start
@@ -288,6 +340,7 @@ async def websocket_endpoint(ws: WebSocket):
                     await ws.send_text(json.dumps({
                         "type": "audio_end",
                         "tts_time": round(tts_time, 2),
+                        "thread_id": thread_id,
                     }))
 
                 persist_turn(tts_time)

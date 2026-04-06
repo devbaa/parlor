@@ -465,6 +465,7 @@ const waveformCanvas = $('waveform');
 const waveformCtx = waveformCanvas.getContext('2d');
 
 let ws, mediaStream, myvad;
+let currentThreadId = null;
 let cameraEnabled = true;
 let audioCtx, currentSource;
 let state = 'loading';
@@ -622,6 +623,9 @@ function connect() {
   };
   ws.onmessage = ({ data }) => {
     const msg = JSON.parse(data);
+    if (msg.thread_id) {
+      currentThreadId = msg.thread_id;
+    }
     if (msg.type === 'text') {
       if (msg.transcription) {
         const userMsgs = messagesDiv.querySelectorAll('.msg.user');
@@ -649,6 +653,8 @@ function connect() {
       streamTtsTime = msg.tts_time;
       const meta = messagesDiv.querySelector('.msg.assistant:last-child .meta');
       if (meta) meta.textContent += ` · TTS ${msg.tts_time}s`;
+    } else if (msg.type === 'error') {
+      addMessage('assistant', msg.detail || 'Thread error');
     }
   };
 }
@@ -699,7 +705,9 @@ function handleSpeechStart() {
     stopPlayback();
     ignoreIncomingAudio = true;
     if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ type: 'interrupt' }));
+      const interruptPayload = { type: 'interrupt' };
+      if (currentThreadId) interruptPayload.thread_id = currentThreadId;
+      ws.send(JSON.stringify(interruptPayload));
     }
     setState('listening');
     console.log('Barge-in: interrupted playback');
@@ -718,6 +726,7 @@ function handleSpeechEnd(audio) {
   addMessage('user', '<span class="loading-dots"><span></span><span></span><span></span></span>', imageBase64 ? 'with camera' : '');
 
   const payload = { audio: wavBase64 };
+  if (currentThreadId) payload.thread_id = currentThreadId;
   if (imageBase64) payload.image = imageBase64;
   ws.send(JSON.stringify(payload));
 }
